@@ -6,7 +6,7 @@ Bot WhatsApp Node.js basé sur Baileys : commandes de groupe, API HTTP, extensio
 
 Choisissez votre plateforme et lancez la commande dans son terminal :
 
-**VPS Debian/Ubuntu** (service systemd) :
+**VPS Debian/Ubuntu** (service systemd; fonctionne avec un utilisateur `sudo` ou root) :
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.sh | bash
@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/mast
 irm https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.ps1 | iex
 ```
 
-Les installateurs demandent le numéro WhatsApp du propriétaire. Scannez le QR code affiché pour associer le bot. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session.
+Les installateurs demandent le numéro WhatsApp du propriétaire. Scannez le QR code affiché pour associer le bot. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Sur un VPS, si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
 
 ## Configuration
 
