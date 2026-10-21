@@ -14,6 +14,39 @@ import { handleGroupParticipantsUpdate } from './group-events.js';
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const execFileAsync = promisify(execFile);
 
+export function buildOwnerWelcome({
+  botName,
+  sessionId,
+  ownerNumber,
+  prefix,
+  autoStatus,
+  autoStatusView,
+  sendRead,
+  autoUpdate,
+  antiDelete,
+  antiVv,
+  gemini,
+}) {
+  return [
+    `👋 Bienvenue et merci d’avoir utilisé *${botName}* !`,
+    '',
+    `✅ *${botName}* est en ligne !`,
+    `Session : ${sessionId}`,
+    `Numéro : ${ownerNumber}`,
+    '',
+    `Envoie *${prefix}menu* pour voir les commandes.`,
+    '',
+    '⚙️ *Fonctionnalités*',
+    `• Statuts vers le propriétaire : ${autoStatus}`,
+    `• Lecture automatique des statuts : ${autoStatusView}`,
+    `• Accusés de lecture : ${sendRead}`,
+    `• Mise à jour automatique : ${autoUpdate}`,
+    `• Anti-suppression : ${antiDelete}`,
+    `• Anti-VV : ${antiVv}`,
+    `• Assistant Gemini : ${gemini}`,
+  ].join('\n');
+}
+
 // Crée la session persistante, affiche un code d’association et reconnecte après une coupure.
 export async function createConnection({
   config,
@@ -112,22 +145,19 @@ export async function createConnection({
       const antiVvSettings = await storage.get('feature:anti_vv');
       const antiVv = antiVvSettings === true || antiVvSettings?.enabled === true ? 'activée' : 'désactivée';
       const prefix = config.prefixes?.[0] || '.';
-      const welcome = [
-        `✅ *${config.botName} est connecté !*`,
-        '',
-        `Préfixe : ${prefix}`,
-        `Statuts vers le propriétaire : ${autoStatus}`,
-        `Lecture automatique des statuts : ${autoStatusView}`,
-        `Accusés de lecture : ${sendRead}`,
-        `Mise à jour automatique : ${autoUpdate}`,
-        `Anti-suppression : ${antiDelete}`,
-        `Anti-VV : ${antiVv}`,
-        `Assistant Gemini : ${config.gemini.apiKey ? 'activé' : 'désactivé (clé API manquante)'}`,
-        '',
-        `Commandes : ${prefix}list • ${prefix}ping • ${prefix}rori`,
-        `Réglages : ${prefix}setvar AUTO_STATUS = on/off`,
-        `${prefix}setvar AUTO_UPDATE = on/off`,
-      ].join('\n');
+      const welcome = buildOwnerWelcome({
+        botName: config.botName,
+        sessionId,
+        ownerNumber: config.sudoNumbers[0],
+        prefix,
+        autoStatus,
+        autoStatusView,
+        sendRead,
+        autoUpdate,
+        antiDelete,
+        antiVv,
+        gemini: config.gemini.apiKey ? 'activé' : 'désactivé (clé API manquante)',
+      });
 
       await socket.sendMessage(ownerJid, { text: welcome });
       welcomeMessageSent = true;

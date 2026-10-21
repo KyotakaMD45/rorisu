@@ -26,6 +26,7 @@ const allowedMimeTypes = new Set([
   'application/pdf',
 ]);
 const maxReplyCharacters = 3500;
+const streamReplyThreshold = 800;
 
 function findMedia(message) {
   const content = unwrapMessage(message);
@@ -122,21 +123,42 @@ export async function executeGemini(context, { generateImage = false } = {}) {
     });
 
     let result;
+    let pendingText = '';
+    let textWasSent = false;
+    const flushText = async () => {
+      const text = pendingText.trim();
+      if (!text) return;
+      pendingText = '';
+      textWasSent = true;
+      for (const part of splitText(text)) {
+        await context.sendReply(part);
+      }
+    };
     try {
       result = await client.generate({
         prompt: generateImage ? `Generate an image based on this prompt. ${prompt}` : prompt,
         history,
         media,
         ...(generateImage ? { responseModalities: ['TEXT', 'IMAGE'] } : {}),
+        onText: async (chunk) => {
+          pendingText += chunk;
+          if (pendingText.length >= streamReplyThreshold
+            || (pendingText.length >= 120 && /[.!?]\s*$/.test(pendingText))) {
+            await flushText();
+          }
+        },
       });
+      await flushText();
     } catch (error) {
       context.logger.error({ err: error }, 'Échec de la requête Gemini.');
       await context.sendReply(error.message || 'La requête Gemini a échoué.');
       return;
     }
 
-    for (const part of splitText(result.text)) {
-      await context.sendReply(part);
+    if (!textWasSent && result.text) {
+      for (const part of splitText(result.text)) {
+        await context.sendReply(part);
+      }
     }
     const outputMedia = [...result.images, ...result.audios];
     const oversizedOutput = outputMedia.some(({ buffer }) => buffer.length > config.gemini.maxMediaBytes);

@@ -46,7 +46,7 @@ Créez une clé dans [Google AI Studio](https://aistudio.google.com/apikey), pui
 - `.image description` ou `.imagine description` : génération d’image avec le modèle configuré.
 - `.gemini reset` : efface le contexte mémorisé de la discussion.
 
-Les modèles, le prompt, la taille maximale des médias, le délai et la mémoire se règlent avec les variables `GEMINI_*` du modèle `config.env.example`. Les médias et la génération d’images dépendent des modèles disponibles pour la clé et de leurs quotas.
+Les réponses textuelles sont transmises en flux dès que Gemini les génère, au lieu d’attendre la fin complète. Pour des réponses plus courtes, réglez `GEMINI_MAX_OUTPUT_TOKENS` (512 par défaut) et `GEMINI_CONTEXT_TURNS` dans `config.env`. Les modèles, le prompt, la taille maximale des médias, le délai et la mémoire se règlent avec les variables `GEMINI_*` du modèle `config.env.example`. Les médias et la génération d’images dépendent des modèles disponibles pour la clé et de leurs quotas.
 
 ### Fonctions automatiques
 

@@ -30,6 +30,7 @@ import { checkForUpdates } from '../core/git-updates.js';
 import { readEnvVariables, writeEnvVariable } from '../core/env.js';
 import { initializeFeatureSettings } from '../core/feature-settings.js';
 import { restartRequiredVariables } from '../core/env-command.js';
+import { buildOwnerWelcome } from '../core/connection.js';
 
 const testStoragePath = path.resolve('data/test-store.json');
 
@@ -172,11 +173,16 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
   let reply;
   await listPlugin.execute({
     config: { botName: 'RORISU', prefixes: ['!', '.'] },
+    message: { pushName: 'KNULL' },
+    senderNumber: '22505320662',
     async sendReply(text) {
       reply = text;
     },
   });
 
+  assert.match(reply, /Bonjour KNULL/);
+  assert.match(reply, /22505320662/);
+  assert.match(reply, /📚 \*COMMANDES\*/);
   assert.match(reply, /RORISU/);
   assert.match(reply, /Préfixe : ! \/ \./);
   assert.match(reply, /!ping/);
@@ -189,6 +195,29 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
   assert.match(reply, /!update/);
   assert.match(reply, /!shutdown/);
   assert.doesNotMatch(reply, /AUTO_STATUS|SEND_READ|AUTO_UPDATE|—/);
+});
+
+test('le message de connexion privé inclut la session, le numéro et l’état des fonctions', () => {
+  const welcome = buildOwnerWelcome({
+    botName: 'teste',
+    sessionId: '0',
+    ownerNumber: '22505320662',
+    prefix: '.',
+    autoStatus: 'activé',
+    autoStatusView: 'désactivée',
+    sendRead: 'désactivés',
+    autoUpdate: 'activée',
+    antiDelete: 'désactivée',
+    antiVv: 'activée',
+    gemini: 'activé',
+  });
+
+  assert.match(welcome, /👋 Bienvenue et merci d’avoir utilisé \*teste\*/);
+  assert.match(welcome, /✅ \*teste\* est en ligne !/);
+  assert.match(welcome, /Session : 0/);
+  assert.match(welcome, /Numéro : 22505320662/);
+  assert.match(welcome, /Envoie \*\.menu\*/);
+  assert.match(welcome, /Mise à jour automatique : activée/);
 });
 
 test('alive affiche l’état des options persistantes', async () => {

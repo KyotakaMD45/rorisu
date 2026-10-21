@@ -4,7 +4,7 @@ import { createGeminiClient, GeminiError } from '../core/gemini.js';
 import geminiPlugin from '../plugins/gemini.js';
 import imagePlugin from '../plugins/image.js';
 
-test('Gemini envoie le contexte et les médias via generateContent', async () => {
+test('Gemini envoie le contexte et les médias via le flux streamGenerateContent', async () => {
   let requestUrl;
   let requestBody;
   const client = createGeminiClient({
@@ -37,7 +37,8 @@ test('Gemini envoie le contexte et les médias via generateContent', async () =>
     media: [{ mimeType: 'image/jpeg', buffer: Buffer.from('input-image') }],
   });
 
-  assert.equal(requestUrl.pathname, '/v1beta/models/gemini-2.5-flash:generateContent');
+  assert.equal(requestUrl.pathname, '/v1beta/models/gemini-2.5-flash:streamGenerateContent');
+  assert.equal(requestUrl.searchParams.get('alt'), 'sse');
   assert.equal(requestUrl.searchParams.get('key'), 'test-api-key');
   assert.deepEqual(requestBody.contents[0], { role: 'user', parts: [{ text: 'Question précédente' }] });
   assert.equal(requestBody.contents[1].parts[1].inlineData.mimeType, 'image/jpeg');
@@ -100,11 +101,86 @@ test('la commande image sélectionne le modèle d’image et demande une sortie 
     globalThis.fetch = previousFetch;
   }
 
-  assert.equal(requestUrl.pathname, '/v1beta/models/gemini-3.1-flash-image:generateContent');
+  assert.equal(requestUrl.pathname, '/v1beta/models/gemini-3.1-flash-image:streamGenerateContent');
   assert.deepEqual(requestBody.generationConfig.responseModalities, ['TEXT', 'IMAGE']);
   assert.match(requestBody.contents[0].parts[0].text, /Un chat astronaute sur la lune/);
   assert.equal(sent[0].chatId, 'chat-1');
   assert.equal(sent[0].payload.image.toString(), 'image-data');
+});
+
+test('Gemini transmet les morceaux de texte dès leur arrivée', async () => {
+  const received = [];
+  const events = [
+    { candidates: [{ content: { parts: [{ text: 'Réponse ' }] } }] },
+    { candidates: [{ content: { parts: [{ text: 'en direct.' }] } }] },
+  ].map((event) => `data: ${JSON.stringify(event)}\n\n`).join('');
+  const client = createGeminiClient({
+    apiKey: 'test-api-key',
+    model: 'gemini-2.5-flash',
+    temperature: 0.5,
+    maxOutputTokens: 512,
+    timeoutMs: 5000,
+    async fetchImpl() {
+      return new Response(`${events}data: [DONE]\n\n`, {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      });
+    },
+  });
+
+  const result = await client.generate({
+    prompt: 'Bonjour',
+    onText(chunk) { received.push(chunk); },
+  });
+
+  assert.deepEqual(received, ['Réponse ', 'en direct.']);
+  assert.equal(result.text, 'Réponse en direct.');
+});
+
+test('la commande Gemini envoie les réponses au fur et à mesure du flux', async () => {
+  const previousFetch = globalThis.fetch;
+  const replies = [];
+  const firstChunk = `${'Cette première partie arrive sans attendre. '.repeat(4)}.`;
+  const events = [firstChunk, 'Dernière phrase.']
+    .map((text) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`)
+    .join('');
+  globalThis.fetch = async () => new Response(`${events}data: [DONE]\n\n`, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  });
+
+  try {
+    await geminiPlugin.execute({
+      args: ['Réponds'],
+      message: { message: { conversation: '.gemini Réponds' } },
+      quotedMessage: null,
+      config: {
+        gemini: {
+          apiKey: 'test-key',
+          model: 'gemini-2.5-flash',
+          systemPrompt: '',
+          temperature: 0.7,
+          maxOutputTokens: 512,
+          timeoutMs: 5000,
+          contextTurns: 0,
+          maxMediaBytes: 1024,
+        },
+        prefixes: ['.'],
+      },
+      storage: { async get() { return null; }, async set() {} },
+      chatId: 'chat-1',
+      senderNumber: '33612345678',
+      socket: { async sendMessage() {} },
+      logger: { error(error) { throw error; } },
+      async sendReply(text) { replies.push(text); },
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  assert.equal(replies.length, 2);
+  assert.match(replies[0], /Cette première partie arrive/);
+  assert.equal(replies[1], 'Dernière phrase.');
 });
 
 test('Gemini signale une clé absente et les limites API sans exposer la clé', async () => {
@@ -117,7 +193,9 @@ test('Gemini signale une clé absente et les limites API sans exposer la clé', 
   });
   await assert.rejects(
     missingKey.generate({ prompt: 'Bonjour' }),
-    /GEMINI_API_KEY/,
+    (error) => error instanceof GeminiError
+      && /GEMINI_API_KEY/.test(error.message)
+      && error.message.includes('https://aistudio.google.com/apikey'),
   );
 
   const rateLimited = createGeminiClient({

@@ -41,7 +41,7 @@ const environmentConfig = Object.freeze({
   GEMINI_SYSTEM_PROMPT: process.env.GEMINI_SYSTEM_PROMPT?.trim()
     || 'Tu es RORISU, un assistant utile. Réponds dans la langue de la question.',
   GEMINI_TEMPERATURE: Number(process.env.GEMINI_TEMPERATURE || 0.7),
-  GEMINI_MAX_OUTPUT_TOKENS: Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 1024),
+  GEMINI_MAX_OUTPUT_TOKENS: Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 512),
   GEMINI_CONTEXT_TURNS: Number(process.env.GEMINI_CONTEXT_TURNS || 4),
   GEMINI_TIMEOUT_MS: Number(process.env.GEMINI_TIMEOUT_MS || 45000),
   GEMINI_MAX_MEDIA_BYTES: Number(process.env.GEMINI_MAX_MEDIA_BYTES || 10485760),
