@@ -9,6 +9,8 @@ import pingPlugin from '../plugins/ping.js';
 import listPlugin from '../plugins/list.js';
 import setvarPlugin from '../plugins/setvar.js';
 import { createAutoUpdater } from '../core/auto-update.js';
+import { writeEnvVariable } from '../core/env.js';
+import { initializeFeatureSettings } from '../core/feature-settings.js';
 
 const testStoragePath = path.resolve('data/test-store.json');
 
@@ -29,6 +31,36 @@ test('le stockage JSON conserve les valeurs et les compteurs', async () => {
     await reopened.close();
   } finally {
     await fs.rm(testStoragePath, { force: true });
+  }
+});
+
+test('charge les options depuis .env et migre les anciennes valeurs du stockage', async () => {
+  const envFilePath = path.resolve('data/test-feature-settings.env');
+  const previousAutoStatus = process.env.AUTO_STATUS;
+  const previousAutoUpdate = process.env.AUTO_UPDATE;
+  const values = new Map([['feature:auto_status', true]]);
+  const storage = {
+    async get(key) { return values.get(key) ?? null; },
+    async set(key, value) { values.set(key, value); },
+  };
+
+  try {
+    delete process.env.AUTO_STATUS;
+    delete process.env.AUTO_UPDATE;
+    await initializeFeatureSettings(storage, envFilePath);
+
+    assert.equal(values.get('feature:auto_status'), true);
+    assert.equal(values.get('feature:auto_update'), false);
+    assert.equal(process.env.AUTO_STATUS, 'on');
+    assert.equal(process.env.AUTO_UPDATE, 'off');
+    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_STATUS=on/);
+    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_UPDATE=off/);
+  } finally {
+    if (previousAutoStatus === undefined) delete process.env.AUTO_STATUS;
+    else process.env.AUTO_STATUS = previousAutoStatus;
+    if (previousAutoUpdate === undefined) delete process.env.AUTO_UPDATE;
+    else process.env.AUTO_UPDATE = previousAutoUpdate;
+    await fs.rm(envFilePath, { force: true });
   }
 });
 
@@ -72,6 +104,9 @@ test('le menu présente les commandes et le préfixe configuré', async () => {
 
 test('setvar active ou désactive les options et rejette les valeurs invalides', async () => {
   const values = new Map();
+  const envFilePath = path.resolve('data/test-bot.env');
+  const previousAutoStatus = process.env.AUTO_STATUS;
+  const previousAutoUpdate = process.env.AUTO_UPDATE;
   const storage = {
     async set(key, value) { values.set(key, value); },
   };
@@ -79,18 +114,50 @@ test('setvar active ou désactive les options et rejette les valeurs invalides',
   const context = {
     isSudo: true,
     storage,
+    envFilePath,
     async sendReply(text) { replies.push(text); },
   };
 
-  await setvarPlugin.execute({ ...context, args: ['AUTO_STATUS', '=', 'on'] });
-  await setvarPlugin.execute({ ...context, args: ['AUTO_UPDATE', 'off'] });
-  await setvarPlugin.execute({ ...context, args: ['AUTO_STATUS', '=', 'maybe'] });
+  delete process.env.AUTO_STATUS;
+  delete process.env.AUTO_UPDATE;
+  try {
+    await fs.writeFile(envFilePath, '# bot settings\nBOT_NAME=RORISU\n', 'utf8');
+    await setvarPlugin.execute({ ...context, args: ['AUTO_STATUS', '=', 'on'] });
+    await setvarPlugin.execute({ ...context, args: ['AUTO_UPDATE', 'off'] });
+    await setvarPlugin.execute({ ...context, args: ['AUTO_STATUS', '=', 'maybe'] });
 
-  assert.equal(values.get('feature:auto_status'), true);
-  assert.equal(values.get('feature:auto_update'), false);
-  assert.match(replies[0], /activé/);
-  assert.match(replies[1], /désactivée/);
-  assert.match(replies[2], /Utilisation/);
+    assert.equal(values.get('feature:auto_status'), true);
+    assert.equal(values.get('feature:auto_update'), false);
+    assert.match(replies[0], /activé.*\.env/);
+    assert.match(replies[1], /désactivée.*\.env/);
+    assert.match(replies[2], /Utilisation/);
+    assert.equal(process.env.AUTO_STATUS, 'on');
+    assert.equal(process.env.AUTO_UPDATE, 'off');
+    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_STATUS=on/);
+    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_UPDATE=off/);
+    assert.match(await fs.readFile(envFilePath, 'utf8'), /BOT_NAME=RORISU/);
+  } finally {
+    if (previousAutoStatus === undefined) delete process.env.AUTO_STATUS;
+    else process.env.AUTO_STATUS = previousAutoStatus;
+    if (previousAutoUpdate === undefined) delete process.env.AUTO_UPDATE;
+    else process.env.AUTO_UPDATE = previousAutoUpdate;
+    await fs.rm(envFilePath, { force: true });
+  }
+});
+
+test('écrit les variables .env sans conserver les doublons', async () => {
+  const envFilePath = path.resolve('data/test-env.env');
+  try {
+    await fs.writeFile(envFilePath, 'AUTO_STATUS=off\n# conservé\nAUTO_STATUS=on\n', 'utf8');
+    await writeEnvVariable('AUTO_STATUS', 'off', envFilePath);
+
+    const contents = await fs.readFile(envFilePath, 'utf8');
+    assert.equal((contents.match(/^AUTO_STATUS=/gm) || []).length, 1);
+    assert.match(contents, /^AUTO_STATUS=off$/m);
+    assert.match(contents, /^# conservé$/m);
+  } finally {
+    await fs.rm(envFilePath, { force: true });
+  }
 });
 
 test('le vérificateur automatique ne récupère et installe les mises à jour qu’après activation', async () => {

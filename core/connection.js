@@ -28,6 +28,9 @@ export async function createConnection({ config, onMessages, storage }) {
   let pairingCodeRequested = false;
   let displayedQr;
   let welcomeMessageSent = false;
+  let ownerNotificationAttempts = 0;
+  let ownerNotificationRetryTimer;
+  let connectionOpen = false;
   let autoUpdater;
 
   const lifecycle = {
@@ -38,6 +41,7 @@ export async function createConnection({ config, onMessages, storage }) {
       stopped = true;
       clearTimeout(reconnectTimer);
       clearTimeout(pairingTimer);
+      clearTimeout(ownerNotificationRetryTimer);
       autoUpdater?.stop();
       await storage.close();
       socket?.end(new Error('Arrêt demandé par un administrateur.'));
@@ -50,6 +54,7 @@ export async function createConnection({ config, onMessages, storage }) {
       stopped = true;
       clearTimeout(reconnectTimer);
       clearTimeout(pairingTimer);
+      clearTimeout(ownerNotificationRetryTimer);
       autoUpdater?.stop();
       await storage.close();
       const child = spawn(process.execPath, process.argv.slice(1), {
@@ -68,10 +73,11 @@ export async function createConnection({ config, onMessages, storage }) {
   async function notifyOwner() {
     if (welcomeMessageSent) return;
 
-    const ownerJid = `${config.sudoNumbers[0]}@s.whatsapp.net`;
-    const autoStatus = await storage.get('feature:auto_status') === true ? 'activé' : 'désactivé';
-    const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
-    const welcome = `Welcome to our awesome community! Come hang out with us for fun chats, cool ideas, and lots of love. Remember the rules: no sharing links, spamming, spreading hate, or being mean. We're all about respect and kindness here.
+    try {
+      const ownerJid = `${config.sudoNumbers[0]}@s.whatsapp.net`;
+      const autoStatus = await storage.get('feature:auto_status') === true ? 'activé' : 'désactivé';
+      const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
+      const welcome = `Welcome to our awesome community! Come hang out with us for fun chats, cool ideas, and lots of love. Remember the rules: no sharing links, spamming, spreading hate, or being mean. We're all about respect and kindness here.
 Telegram Group https://t.me/+TYpRg-AoN4gzNzNl
 Must Read Rules!!!
 
@@ -85,8 +91,25 @@ Fonctions activées/désactivées :
 - AUTO_STATUS : ${autoStatus}
 - AUTO_UPDATE : ${autoUpdate}`;
 
-    await socket.sendMessage(ownerJid, { text: welcome });
-    welcomeMessageSent = true;
+      await socket.sendMessage(ownerJid, { text: welcome });
+      welcomeMessageSent = true;
+      ownerNotificationAttempts = 0;
+      logger.info('Message de connexion envoyé au propriétaire.');
+    } catch (error) {
+      logger.error(
+        { err: error, attempt: ownerNotificationAttempts + 1 },
+        'Impossible d’envoyer le message de connexion au propriétaire.',
+      );
+      const retryDelays = [5000, 15000, 30000];
+      const retryDelay = retryDelays[ownerNotificationAttempts];
+      ownerNotificationAttempts += 1;
+      if (retryDelay !== undefined && !ownerNotificationRetryTimer) {
+        ownerNotificationRetryTimer = setTimeout(() => {
+          ownerNotificationRetryTimer = undefined;
+          if (connectionOpen && !stopped) void notifyOwner();
+        }, retryDelay);
+      }
+    }
   }
 
   async function connect() {
@@ -105,14 +128,15 @@ Fonctions activées/désactivées :
     socket.ev.on('messages.upsert', (event) => onMessages(event, socket, lifecycle));
     socket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       if (connection === 'open') {
+        connectionOpen = true;
         logger.info('Connexion WhatsApp établie.');
         autoUpdater.start();
-        try {
-          await notifyOwner();
-        } catch (error) {
-          logger.error({ err: error }, 'Impossible d’envoyer le message de connexion au propriétaire.');
-        }
+        await notifyOwner();
       } else if (connection === 'close' && !stopped) {
+        connectionOpen = false;
+        clearTimeout(ownerNotificationRetryTimer);
+        ownerNotificationRetryTimer = undefined;
+        ownerNotificationAttempts = 0;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         if (statusCode === DisconnectReason.loggedOut) {
           logger.error('Session déconnectée ; supprimez les identifiants pour réassocier le bot.');

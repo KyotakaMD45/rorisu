@@ -18,6 +18,8 @@ BOT_NAME=RORISU
 HANDLERS=.
 SUDO=33612345678
 DATABASE_URL=
+AUTO_STATUS=off
+AUTO_UPDATE=off
 LANGUAGE=fr
 TZ=Europe/Paris
 ```
@@ -52,9 +54,9 @@ Avec le préfixe `.` par défaut :
 | `.setvar AUTO_UPDATE = on` / `off` | Active ou désactive la vérification des mises à jour Git toutes les cinq minutes (propriétaire uniquement). |
 | `.shutdown` | Arrête le processus (propriétaire uniquement). |
 
-Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
+Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. `.setvar` enregistre également le réglage dans `.env` pour qu’il survive aux redémarrages. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
 
-À chaque connexion, le propriétaire reçoit en privé le message d’accueil ainsi que l’état de `AUTO_STATUS` et `AUTO_UPDATE`. Lorsque `AUTO_STATUS` est activé, les nouveaux statuts textuels, images et vidéos sont transmis au propriétaire, au maximum une fois par identifiant de message récent. Ces options sont conservées dans le stockage du bot.
+À chaque démarrage où WhatsApp se connecte, le propriétaire reçoit en privé le message d’accueil ainsi que l’état de `AUTO_STATUS` et `AUTO_UPDATE`. En cas d’échec d’envoi temporaire, le bot réessaie jusqu’à trois fois et consigne les erreurs dans le terminal. Lorsque `AUTO_STATUS` est activé, les nouveaux statuts textuels, images et vidéos sont transmis au propriétaire, au maximum une fois par identifiant de message récent. Les valeurs de `.env` sont chargées au démarrage et synchronisées avec le stockage du bot.
 
 Les commandes envoyées depuis le compte WhatsApp lié au bot sont également traitées et ont les droits du propriétaire.
 
@@ -66,6 +68,8 @@ Les commandes envoyées depuis le compte WhatsApp lié au bot sont également tr
 | `HANDLERS` | Préfixe(s) de commande séparés par des virgules. | `.` |
 | `SUDO` | Numéros pouvant redémarrer ou arrêter le bot ; le premier sert à l’association. | aucune |
 | `PAIRING_METHOD` | Méthode d’association WhatsApp : `qr` ou `code`. | `qr` |
+| `AUTO_STATUS` | Transfert en privé des nouveaux statuts : `on` ou `off`. | `off` |
+| `AUTO_UPDATE` | Vérification automatique des mises à jour Git : `on` ou `off`. | `off` |
 | `DATABASE_URL` | URL PostgreSQL ; vide pour le stockage JSON local. | vide |
 | `LANGUAGE` | Langue configurée. | `fr` |
 | `TZ` | Fuseau horaire du processus. | `Europe/Paris` |

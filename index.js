@@ -4,6 +4,7 @@ import { createStorage } from './storage.js';
 import { createConnection } from './core/connection.js';
 import { createMessageHandler } from './core/handler.js';
 import { loadPlugins } from './core/loader.js';
+import { initializeFeatureSettings } from './core/feature-settings.js';
 
 // Point d'entrée : initialise le stockage, charge les commandes puis démarre Baileys.
 async function start() {
@@ -13,6 +14,7 @@ async function start() {
 
   const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
   const storage = await createStorage(config);
+  await initializeFeatureSettings(storage);
   const plugins = await loadPlugins();
   const handleUpsert = createMessageHandler({ plugins, config, storage, logger });
 

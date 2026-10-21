@@ -1,23 +1,11 @@
-const featureSettings = new Map([
-  ['AUTO_STATUS', {
-    key: 'feature:auto_status',
-    label: 'transfert privé des statuts',
-    enabled: 'activé',
-    disabled: 'désactivé',
-  }],
-  ['AUTO_UPDATE', {
-    key: 'feature:auto_update',
-    label: 'mise à jour automatique',
-    enabled: 'activée',
-    disabled: 'désactivée',
-  }],
-]);
+import { writeEnvVariable } from '../core/env.js';
+import { featureSettings } from '../core/feature-settings.js';
 
 export default {
   name: 'setvar',
   aliases: [],
   description: 'Active ou désactive les fonctions du bot (propriétaire uniquement).',
-  async execute({ isSudo, args, sendReply, storage }) {
+  async execute({ isSudo, args, sendReply, storage, envFilePath }) {
     if (!isSudo) {
       await sendReply('Cette commande est réservée au propriétaire du bot.');
       return;
@@ -34,7 +22,12 @@ export default {
     }
 
     const enabled = value === 'on';
-    await storage.set(setting.key, enabled);
-    await sendReply(`${setting.label} : ${enabled ? setting.enabled : setting.disabled}.`);
+    const envValue = enabled ? 'on' : 'off';
+    await writeEnvVariable(setting.envName, envValue, envFilePath);
+    await storage.set(setting.storageKey, enabled);
+    process.env[setting.envName] = envValue;
+    await sendReply(
+      `${setting.label} : ${enabled ? setting.enabled : setting.disabled} (enregistré dans .env).`,
+    );
   },
 };
