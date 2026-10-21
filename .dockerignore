@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+auth_info_baileys
+auth_info_baileys-*
+data
+coverage
+npm-debug.log*

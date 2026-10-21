@@ -22,21 +22,36 @@ async function start() {
 
   try {
     await apiServer?.listen();
-    const handleUpsert = createMessageHandler({
-      plugins,
-      config,
-      storage,
-      logger,
-      onIncoming: apiServer?.handleIncoming,
-    });
-
     logger.info(`${config.botName} démarre avec ${plugins.size} commandes et alias.`);
-    const connection = await createConnection({
-      config,
-      storage,
-      onMessages: handleUpsert,
-      onSocket: (socket) => apiServer?.setSocket(socket),
-    });
+    const connections = [];
+    for (const sessionId of config.sessionIds) {
+      const sessionConfig = {
+        ...config,
+        authDirectory: config.sessionIds.length === 1
+          ? config.authDirectory
+          : sessionId === config.sessionIds[0]
+            ? config.authDirectory
+            : `${config.authDirectory}-${sessionId}`,
+      };
+      const handleUpsert = createMessageHandler({
+        plugins,
+        config: sessionConfig,
+        storage,
+        logger,
+        onIncoming: apiServer
+          ? ({ message, socket }) => apiServer.handleIncoming({ message, socket, sessionId })
+          : undefined,
+      });
+      connections.push(await createConnection({
+        config: sessionConfig,
+        storage,
+        sessionId,
+        enableAutoUpdater: sessionId === config.sessionIds[0],
+        notifyOwnerOnConnect: sessionId === config.sessionIds[0],
+        onMessages: handleUpsert,
+        onSocket: (socket) => apiServer?.setSocket(sessionId, socket),
+      }));
+    }
 
     const shutdown = async () => {
       try {
@@ -44,7 +59,7 @@ async function start() {
       } catch (error) {
         logger.error({ err: error }, 'Impossible d’arrêter proprement l’API HTTP.');
       }
-      await connection.lifecycle.shutdown();
+      await connections[0].lifecycle.shutdown();
     };
     process.once('SIGINT', () => void shutdown());
     process.once('SIGTERM', () => void shutdown());

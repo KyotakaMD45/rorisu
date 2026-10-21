@@ -28,6 +28,7 @@ import alivePlugin from '../plugins/alive.js';
 import { createAutoUpdater } from '../core/auto-update.js';
 import { readEnvVariables, writeEnvVariable } from '../core/env.js';
 import { initializeFeatureSettings } from '../core/feature-settings.js';
+import { restartRequiredVariables } from '../core/env-command.js';
 
 const testStoragePath = path.resolve('data/test-store.json');
 
@@ -127,6 +128,20 @@ test('le chargeur ajoute les extensions locales sans autoriser les collisions', 
     );
   } finally {
     await fs.rm(externalPluginsDirectory, { recursive: true, force: true });
+  }
+});
+
+test('les paramètres du serveur API et des sessions nécessitent un redémarrage', () => {
+  for (const variable of [
+    'API_KEY',
+    'API_MODE',
+    'API_PUBLIC_URL',
+    'API_WEBHOOK_URL',
+    'EXTERNAL_PLUGINS_DIRECTORY',
+    'PORT',
+    'SESSION_ID',
+  ]) {
+    assert.equal(restartRequiredVariables.has(variable), true, `${variable} doit redémarrer le bot.`);
   }
 });
 

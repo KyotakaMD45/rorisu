@@ -13,7 +13,15 @@ import { handleGroupParticipantsUpdate } from './group-events.js';
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Crée la session persistante, affiche un code d’association et reconnecte après une coupure.
-export async function createConnection({ config, onMessages, onSocket, storage }) {
+export async function createConnection({
+  config,
+  onMessages,
+  onSocket,
+  sessionId = '0',
+  enableAutoUpdater = true,
+  notifyOwnerOnConnect = true,
+  storage,
+}) {
   const authDirectory = path.resolve(projectDirectory, config.authDirectory);
   const { state, saveCreds } = await useMultiFileAuthState(authDirectory);
   if (config.pairingMethod === 'qr' && !state.creds.registered && state.creds.pairingCode) {
@@ -127,7 +135,7 @@ export async function createConnection({ config, onMessages, onSocket, storage }
     onSocket?.(socket);
 
     socket.ev.on('creds.update', saveCreds);
-    socket.ev.on('messages.upsert', (event) => onMessages(event, socket, lifecycle));
+    socket.ev.on('messages.upsert', (event) => onMessages(event, socket, lifecycle, sessionId));
     socket.ev.on('group-participants.update', (update) => {
       void handleGroupParticipantsUpdate(update, { socket, storage }).catch((error) => {
         logger.error({ err: error, groupId: update.id }, 'Impossible d’envoyer le message automatique du groupe.');
@@ -137,8 +145,8 @@ export async function createConnection({ config, onMessages, onSocket, storage }
       if (connection === 'open') {
         connectionOpen = true;
         logger.info('Connexion WhatsApp établie.');
-        autoUpdater.start();
-        await notifyOwner();
+        if (enableAutoUpdater) autoUpdater.start();
+        if (notifyOwnerOnConnect) await notifyOwner();
       } else if (connection === 'close' && !stopped) {
         connectionOpen = false;
         clearTimeout(ownerNotificationRetryTimer);

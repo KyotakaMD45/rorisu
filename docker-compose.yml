@@ -1,0 +1,17 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      AUTH_DIRECTORY: /app/state/auth_info_baileys
+      STORAGE_FILE: /app/state/data/store.json
+      PORT: "3000"
+    volumes:
+      - bot-state:/app/state
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-3000}:3000"
+
+volumes:
+  bot-state:

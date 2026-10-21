@@ -19,6 +19,25 @@ Le script installe Git et Node.js si nécessaire, demande le numéro WhatsApp du
 
 Le script d’installation est disponible dans [`install.sh`](./install.sh). Vérifiez-le avant de l’exécuter si vous préférez inspecter les commandes qu’il lance.
 
+### Déploiement Docker
+
+Installez Docker Compose, clonez le dépôt et préparez la configuration :
+
+```sh
+git clone https://github.com/KyotakaMD45/rorisu-baileys-bot.git
+cd rorisu-baileys-bot
+cp .env.example .env
+```
+
+Renseignez `SUDO` dans `.env`, puis démarrez le bot :
+
+```sh
+docker compose up -d --build
+docker compose logs -f bot
+```
+
+Scannez le QR code affiché dans les journaux. La session et les données sont conservées dans le volume Docker `bot-state`. Pour arrêter le bot, utilisez `docker compose down` ; ne supprimez pas le volume si vous souhaitez garder la session WhatsApp. L’API HTTP est publiée uniquement sur `127.0.0.1:3000` ; placez un proxy HTTPS devant elle pour l’exposer.
+
 ### Installation rapide sur Windows
 
 Ouvrez PowerShell et exécutez :
@@ -61,6 +80,7 @@ API_MODE=true
 API_KEY=remplacez-par-une-cle-secrete-longue
 PORT=3000
 API_WEBHOOK_URL=
+API_PUBLIC_URL=https://bot.example.com
 ```
 
 `API_MODE=true` garde les commandes WhatsApp actives ; `API_MODE=only` désactive le traitement des commandes et utilise le bot comme passerelle. Chaque appel doit envoyer la clé dans l’en-tête `x-api-key`. Pour le moment, l’API prend en charge uniquement les messages texte et une session (`0`).
@@ -75,7 +95,9 @@ curl http://localhost:3000/api/sessions \
   -H "x-api-key: remplacez-par-une-cle-secrete-longue"
 ```
 
-Avec `API_WEBHOOK_URL`, les nouveaux messages entrants sont envoyés en JSON à cette URL, avec la même clé dans `x-api-key`. N’exposez pas le port HTTP directement sur Internet : placez l’API derrière un proxy HTTPS et protégez la clé. Les envois de médias, les liens de téléchargement et les sessions multiples ne sont pas encore pris en charge.
+Avec `API_WEBHOOK_URL`, les nouveaux messages entrants sont envoyés en JSON à cette URL, avec la même clé dans `x-api-key`. Les images, vidéos, fichiers audio, documents et autocollants reçus sont mis en cache pendant dix minutes (limite : 15 Mo par fichier et 50 Mo au total) et leur webhook contient un lien `media.url` protégé par la clé API. Configurez `API_PUBLIC_URL` avec l’URL HTTPS publique de votre proxy pour créer des liens accessibles depuis le service webhook.
+
+`SESSION_ID=principal,secondaire` démarre plusieurs comptes WhatsApp dans des dossiers d’authentification séparés. Le premier identifiant réutilise le dossier d’authentification configuré ; les autres utilisent le suffixe de leur identifiant. L’endpoint `/api/sessions` les liste et accepte l’identifiant dans le champ `session` de `/api/send`. L’envoi accepte le texte et les médias image, vidéo, audio et document via une URL HTTP(S) publique sur le port 80 ou 443 ; les hôtes privés, les redirections et les fichiers dépassant 20 Mo sont refusés. N’exposez pas le port HTTP directement sur Internet : placez l’API derrière un proxy HTTPS et protégez la clé.
 
 ## Démarrer et associer WhatsApp
 
@@ -146,6 +168,8 @@ Les commandes envoyées depuis le compte WhatsApp lié au bot sont également tr
 | `API_KEY` | Clé d’authentification de l’API HTTP. Obligatoire si l’API est activée. | vide |
 | `PORT` | Port HTTP de l’API. | `3000` |
 | `API_WEBHOOK_URL` | URL recevant les messages entrants en JSON. | vide |
+| `API_PUBLIC_URL` | URL publique de l’API utilisée dans les liens de médias des webhooks. | vide |
+| `SESSION_ID` | Identifiants de comptes WhatsApp séparés par des virgules. | `0` |
 | `EXTERNAL_PLUGINS_DIRECTORY` | Dossier des extensions locales `.js` / `.mjs`. | `eplugins` |
 | `WARN_LIMIT` | Nombre d’avertissements avant tentative de retrait d’un membre. | `3` |
 | `DATABASE_URL` | URL PostgreSQL ; vide pour le stockage JSON local. | vide |

@@ -17,6 +17,7 @@ const pairingMethod = process.env.PAIRING_METHOD?.trim().toLowerCase() || 'qr';
 const warnLimit = Number(process.env.WARN_LIMIT || 3);
 const apiMode = process.env.API_MODE?.trim().toLowerCase() || 'false';
 const apiPort = Number(process.env.PORT || 3000);
+const sessionIds = splitList(process.env.SESSION_ID || '0');
 
 if (!['qr', 'code'].includes(pairingMethod)) {
   throw new Error('PAIRING_METHOD doit être « qr » ou « code ».');
@@ -29,6 +30,11 @@ if (!['false', 'true', 'only'].includes(apiMode)) {
 }
 if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535) {
   throw new Error('PORT doit être un nombre entier compris entre 1 et 65535.');
+}
+if (!sessionIds.length
+  || sessionIds.some((id) => !/^[a-zA-Z0-9_-]{1,32}$/.test(id))
+  || new Set(sessionIds).size !== sessionIds.length) {
+  throw new Error('SESSION_ID doit contenir des identifiants uniques de 1 à 32 caractères (lettres, chiffres, tirets ou soulignements).');
 }
 if (apiMode !== 'false' && !process.env.API_KEY?.trim()) {
   throw new Error('API_KEY est obligatoire lorsque API_MODE est activé.');
@@ -44,6 +50,17 @@ if (apiMode !== 'false' && process.env.API_WEBHOOK_URL?.trim()) {
     throw new Error('API_WEBHOOK_URL doit utiliser HTTP ou HTTPS.');
   }
 }
+if (apiMode !== 'false' && process.env.API_PUBLIC_URL?.trim()) {
+  let publicUrl;
+  try {
+    publicUrl = new URL(process.env.API_PUBLIC_URL.trim());
+  } catch {
+    throw new Error('API_PUBLIC_URL doit être une URL HTTP ou HTTPS valide.');
+  }
+  if (!['http:', 'https:'].includes(publicUrl.protocol) || publicUrl.username || publicUrl.password) {
+    throw new Error('API_PUBLIC_URL doit utiliser HTTP ou HTTPS sans identifiants intégrés.');
+  }
+}
 
 export const config = Object.freeze({
   botName: process.env.BOT_NAME?.trim() || 'RORISU',
@@ -55,6 +72,8 @@ export const config = Object.freeze({
   apiKey: process.env.API_KEY?.trim() || '',
   apiPort,
   apiWebhookUrl: process.env.API_WEBHOOK_URL?.trim() || '',
+  apiPublicUrl: process.env.API_PUBLIC_URL?.trim().replace(/\/+$/, '') || '',
+  sessionIds,
   databaseUrl: process.env.DATABASE_URL?.trim() || '',
   language: process.env.LANGUAGE?.trim() || 'fr',
   timeZone: process.env.TZ,
