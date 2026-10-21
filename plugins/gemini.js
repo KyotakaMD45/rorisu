@@ -51,15 +51,16 @@ function splitText(text) {
   return parts;
 }
 
-export default {
-  name: 'gemini',
-  aliases: ['ai'],
-  description: 'Pose une question à Gemini ou demande l’analyse d’un média.',
-  async execute(context) {
+export async function executeGemini(context, { generateImage = false } = {}) {
     const { args, message, quotedMessage, config, storage, chatId, senderNumber } = context;
     const input = args.join(' ').trim();
     const historyKey = `gemini:history:${chatId}:${senderNumber}`;
-    if (/^(?:reset|clear|oublie)$/i.test(input)) {
+    const resetRequested = /^(?:reset|clear|oublie)$/i.test(input);
+    if (generateImage && (!input || resetRequested)) {
+      await context.sendReply('Utilisation : .image décris l’image à générer.');
+      return;
+    }
+    if (!generateImage && resetRequested) {
       await storage.set(historyKey, []);
       await context.sendReply('Le contexte Gemini de cette discussion a été effacé.');
       return;
@@ -109,17 +110,25 @@ export default {
     }
 
     const prompt = input || 'Décris et analyse ce média.';
-    const oldHistory = config.gemini.contextTurns > 0
+    const oldHistory = !generateImage && config.gemini.contextTurns > 0
       ? await storage.get(historyKey)
       : [];
-    const history = Array.isArray(oldHistory)
+    const history = !generateImage && Array.isArray(oldHistory)
       ? oldHistory.slice(-config.gemini.contextTurns * 2)
       : [];
-    const client = createGeminiClient(config.gemini);
+    const client = createGeminiClient({
+      ...config.gemini,
+      model: generateImage ? config.gemini.imageModel : config.gemini.model,
+    });
 
     let result;
     try {
-      result = await client.generate({ prompt, history, media });
+      result = await client.generate({
+        prompt: generateImage ? `Generate an image based on this prompt. ${prompt}` : prompt,
+        history,
+        media,
+        ...(generateImage ? { responseModalities: ['TEXT', 'IMAGE'] } : {}),
+      });
     } catch (error) {
       context.logger.error({ err: error }, 'Échec de la requête Gemini.');
       await context.sendReply(error.message || 'La requête Gemini a échoué.');
@@ -129,14 +138,19 @@ export default {
     for (const part of splitText(result.text)) {
       await context.sendReply(part);
     }
-    for (const image of result.images) {
+    const outputMedia = [...result.images, ...result.audios];
+    const oversizedOutput = outputMedia.some(({ buffer }) => buffer.length > config.gemini.maxMediaBytes);
+    if (oversizedOutput) {
+      await context.sendReply('Gemini a généré un média qui dépasse la limite configurée ; il n’a pas été envoyé.');
+    }
+    for (const image of result.images.filter(({ buffer }) => buffer.length <= config.gemini.maxMediaBytes)) {
       await context.socket.sendMessage(
         chatId,
         { image: image.buffer, mimetype: image.mimeType },
         { quoted: message },
       );
     }
-    for (const audio of result.audios) {
+    for (const audio of result.audios.filter(({ buffer }) => buffer.length <= config.gemini.maxMediaBytes)) {
       await context.socket.sendMessage(
         chatId,
         { audio: audio.buffer, mimetype: audio.mimeType, ptt: audio.mimeType.includes('ogg') },
@@ -144,7 +158,7 @@ export default {
       );
     }
 
-    if (config.gemini.contextTurns > 0) {
+    if (!generateImage && config.gemini.contextTurns > 0) {
       const responseText = result.text
         || (result.images.length ? '[Image générée par Gemini]' : '[Audio généré par Gemini]');
       await storage.set(historyKey, [
@@ -153,5 +167,13 @@ export default {
         { role: 'model', parts: [{ text: responseText }] },
       ].slice(-config.gemini.contextTurns * 2));
     }
+}
+
+export default {
+  name: 'gemini',
+  aliases: ['ai'],
+  description: 'Pose une question à Gemini ou demande l’analyse d’un média.',
+  async execute(context) {
+    await executeGemini(context);
   },
 };

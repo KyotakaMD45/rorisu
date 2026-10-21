@@ -19,6 +19,16 @@ Le script installe Git et Node.js si nécessaire, demande le numéro WhatsApp du
 
 Le script d’installation est disponible dans [`install.sh`](./install.sh). Vérifiez-le avant de l’exécuter si vous préférez inspecter les commandes qu’il lance.
 
+### Installation rapide dans Termux (Android)
+
+Dans Termux, exécutez :
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install-termux.sh | bash
+```
+
+Le script installe Git et Node.js, configure le numéro du propriétaire et démarre le bot dans Termux. Scannez le QR code et gardez Termux ouvert pendant l’utilisation ; contrairement au script VPS, Termux ne configure pas de service `systemd`. Utilisez une version récente de Termux provenant de F-Droid ou GitHub.
+
 ### Déploiement Docker
 
 Installez Docker Compose, clonez le dépôt et préparez la configuration :
@@ -148,6 +158,7 @@ Avec le préfixe `.` par défaut :
 | `.setvar AUTO_UPDATE = on` / `off` | Active ou désactive la vérification immédiate puis périodique des mises à jour GitHub (toutes les cinq minutes). |
 | `.gemini question` / `.ai question` | Pose une question à Gemini. Une image, un audio, une vidéo MP4 ou un PDF envoyé/cité peut être analysé. |
 | `.gemini reset` | Efface le contexte Gemini de la discussion et de l’utilisateur. |
+| `.image description` / `.imagine description` | Génère une image avec le modèle Gemini image configuré. |
 | `.shutdown` | Arrête le processus (propriétaire uniquement). |
 
 Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `getvar`, `allvar`, `delvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. Les commandes de variables écrivent directement dans `config.env`; les secrets sont masqués dans les réponses, et les variables nécessaires au démarrage (`SUDO`, `DATABASE_URL`, `PAIRING_METHOD`, etc.) déclenchent un redémarrage après modification ou suppression. Les variables d’environnement dangereuses comme `NODE_OPTIONS` ne peuvent pas être modifiées par ces commandes. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
@@ -181,6 +192,7 @@ Les commandes envoyées depuis le compte WhatsApp lié au bot sont également tr
 | `TZ` | Fuseau horaire du processus. | `Europe/Paris` |
 | `GEMINI_API_KEY` | Clé API Google AI Studio ; nécessaire à la commande Gemini. | vide |
 | `GEMINI_MODEL` | Nom du modèle Gemini utilisé pour les questions et médias. | `gemini-3.8-flash` |
+| `GEMINI_IMAGE_MODEL` | Modèle Gemini qui prend en charge la génération d’images. | `gemini-3.1-flash-image` |
 | `GEMINI_SYSTEM_PROMPT` | Consigne système envoyée avec chaque requête. | assistant RORISU multilingue |
 | `GEMINI_TEMPERATURE` | Créativité de la réponse, de `0` à `2`. | `0.7` |
 | `GEMINI_MAX_OUTPUT_TOKENS` | Limite de génération. | `1024` |
@@ -190,7 +202,7 @@ Les commandes envoyées depuis le compte WhatsApp lié au bot sont également tr
 
 PostgreSQL stocke les valeurs dans `bot_store`. En mode fichier, les données et compteurs sont conservés dans `data/store.json`. Les dépendances de conversion WebP embarquent ffmpeg ; aucun binaire ffmpeg externe n’est requis.
 
-Pour activer Gemini, créez une clé sur [Google AI Studio](https://aistudio.google.com/apikey), renseignez `GEMINI_API_KEY` dans `config.env`, puis redémarrez le bot. La clé reste locale et ne doit pas être publiée. Les autres paramètres Gemini peuvent être modifiés via `.setvar`; leur changement redémarre le bot. Le contexte est conservé dans le stockage RORISU par discussion et numéro d’utilisateur ; `.gemini reset` le supprime. Gemini accepte les médias et modèles compatibles avec l’API Google, dont les images, l’audio, les vidéos MP4 et les PDF ; la génération d’images ou d’audio dépend du modèle sélectionné.
+Pour activer Gemini, créez une clé sur [Google AI Studio](https://aistudio.google.com/apikey), renseignez `GEMINI_API_KEY` dans `config.env`, puis redémarrez le bot. La clé reste locale et ne doit pas être publiée. Les autres paramètres Gemini peuvent être modifiés via `.setvar`; leur changement redémarre le bot. Le contexte est conservé dans le stockage RORISU par discussion et numéro d’utilisateur ; `.gemini reset` le supprime. `.gemini question` analyse le texte, les images, fichiers audio, vidéos MP4 et PDF compatibles envoyés ou cités. `.image description` demande au modèle d’images configuré de générer une image. La disponibilité dépend des modèles activés pour votre clé et de leurs quotas Google.
 
 ## Développement
 

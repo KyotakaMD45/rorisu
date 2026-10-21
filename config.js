@@ -37,6 +37,7 @@ const environmentConfig = Object.freeze({
   EXTERNAL_PLUGINS_DIRECTORY: process.env.EXTERNAL_PLUGINS_DIRECTORY?.trim() || 'eplugins',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY?.trim() || '',
   GEMINI_MODEL: process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash',
+  GEMINI_IMAGE_MODEL: process.env.GEMINI_IMAGE_MODEL?.trim() || 'gemini-3.1-flash-image',
   GEMINI_SYSTEM_PROMPT: process.env.GEMINI_SYSTEM_PROMPT?.trim()
     || 'Tu es RORISU, un assistant utile. Réponds dans la langue de la question.',
   GEMINI_TEMPERATURE: Number(process.env.GEMINI_TEMPERATURE || 0.7),
@@ -95,6 +96,9 @@ if (environmentConfig.API_MODE !== 'false' && environmentConfig.API_PUBLIC_URL) 
 if (!/^[a-zA-Z0-9._-]{1,128}$/.test(environmentConfig.GEMINI_MODEL)) {
   throw new Error('GEMINI_MODEL contient un nom de modèle invalide.');
 }
+if (!/^[a-zA-Z0-9._-]{1,128}$/.test(environmentConfig.GEMINI_IMAGE_MODEL)) {
+  throw new Error('GEMINI_IMAGE_MODEL contient un nom de modèle invalide.');
+}
 if (!Number.isFinite(environmentConfig.GEMINI_TEMPERATURE)
   || environmentConfig.GEMINI_TEMPERATURE < 0
   || environmentConfig.GEMINI_TEMPERATURE > 2) {
@@ -142,6 +146,7 @@ export const config = Object.freeze({
   gemini: Object.freeze({
     apiKey: environmentConfig.GEMINI_API_KEY,
     model: environmentConfig.GEMINI_MODEL,
+    imageModel: environmentConfig.GEMINI_IMAGE_MODEL,
     systemPrompt: environmentConfig.GEMINI_SYSTEM_PROMPT,
     temperature: environmentConfig.GEMINI_TEMPERATURE,
     maxOutputTokens: environmentConfig.GEMINI_MAX_OUTPUT_TOKENS,

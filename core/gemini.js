@@ -26,7 +26,7 @@ export function createGeminiClient({
   fetchImpl = fetch,
 }) {
   return {
-    async generate({ prompt, history = [], media = [] }) {
+    async generate({ prompt, history = [], media = [], responseModalities }) {
       if (!apiKey) {
         throw new GeminiError('Configurez GEMINI_API_KEY dans config.env pour utiliser Gemini.');
       }
@@ -50,6 +50,7 @@ export function createGeminiClient({
         generationConfig: {
           temperature,
           maxOutputTokens,
+          ...(responseModalities ? { responseModalities } : {}),
         },
         ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {}),
       };

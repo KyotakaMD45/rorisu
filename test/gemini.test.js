@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createGeminiClient, GeminiError } from '../core/gemini.js';
 import geminiPlugin from '../plugins/gemini.js';
+import imagePlugin from '../plugins/image.js';
 
 test('Gemini envoie le contexte et les médias via generateContent', async () => {
   let requestUrl;
@@ -49,6 +50,61 @@ test('Gemini envoie le contexte et les médias via generateContent', async () =>
   assert.equal(result.text, 'Voici la réponse.');
   assert.equal(result.images[0].buffer.toString(), 'generated');
   assert.equal(result.audios[0].buffer.toString(), 'spoken');
+});
+
+test('la commande image sélectionne le modèle d’image et demande une sortie visuelle', async () => {
+  const previousFetch = globalThis.fetch;
+  let requestUrl;
+  let requestBody;
+  globalThis.fetch = async (url, options) => {
+    requestUrl = new URL(url);
+    requestBody = JSON.parse(options.body);
+    return new Response(JSON.stringify({
+      candidates: [{
+        content: {
+          parts: [{ inlineData: { mimeType: 'image/png', data: Buffer.from('image-data').toString('base64') } }],
+        },
+      }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const sent = [];
+
+  try {
+    await imagePlugin.execute({
+      args: ['Un', 'chat', 'astronaute', 'sur', 'la', 'lune'],
+      message: { message: { conversation: '.image Un chat astronaute sur la lune' } },
+      quotedMessage: null,
+      config: {
+        gemini: {
+          apiKey: 'test-key',
+          model: 'gemini-3.8-flash',
+          imageModel: 'gemini-3.1-flash-image',
+          systemPrompt: 'Prompt test.',
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+          timeoutMs: 5000,
+          contextTurns: 4,
+          maxMediaBytes: 1024,
+        },
+      },
+      storage: { async get() { return null; }, async set() {} },
+      chatId: 'chat-1',
+      senderNumber: '33612345678',
+      socket: {
+        async sendMessage(chatId, payload) { sent.push({ chatId, payload }); },
+      },
+      logger: { error(error) { throw error; } },
+      async sendReply(text) { sent.push({ text }); },
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  assert.equal(requestUrl.pathname, '/v1beta/models/gemini-3.1-flash-image:generateContent');
+  assert.deepEqual(requestBody.generationConfig.responseModalities, ['TEXT', 'IMAGE']);
+  assert.match(requestBody.contents[0].parts[0].text, /Un chat astronaute sur la lune/);
+  assert.equal(sent[0].chatId, 'chat-1');
+  assert.equal(sent[0].payload.image.toString(), 'image-data');
 });
 
 test('Gemini signale une clé absente et les limites API sans exposer la clé', async () => {

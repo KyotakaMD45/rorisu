@@ -99,7 +99,7 @@ test('charge les options depuis la configuration et migre les anciennes valeurs 
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'gemini', 'ai']) {
+  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'gemini', 'ai', 'image', 'imagine']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
   assert.equal(plugins.get('stop').name, 'filter');
@@ -140,6 +140,7 @@ test('les paramètres du serveur API et des sessions nécessitent un redémarrag
     'EXTERNAL_PLUGINS_DIRECTORY',
     'GEMINI_API_KEY',
     'GEMINI_CONTEXT_TURNS',
+    'GEMINI_IMAGE_MODEL',
     'GEMINI_MAX_MEDIA_BYTES',
     'GEMINI_MAX_OUTPUT_TOKENS',
     'GEMINI_MODEL',
@@ -180,6 +181,7 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
   assert.match(reply, /!ping/);
   assert.match(reply, /!sticker/);
   assert.match(reply, /!gemini \/ !ai/);
+  assert.match(reply, /!image \/ !imagine/);
   assert.match(reply, /!antiword/);
   assert.match(reply, /!setgreet \/ !setgoodbye/);
   assert.match(reply, /!setvar/);

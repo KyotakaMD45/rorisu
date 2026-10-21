@@ -16,6 +16,7 @@ export default {
       '┃ *OUTILS*',
       `┃ ${prefix}afk`,
       `┃ ${prefix}gemini / ${prefix}ai`,
+      `┃ ${prefix}image / ${prefix}imagine`,
       `┃ ${prefix}poll`,
       `┃ ${prefix}react`,
       `┃ ${prefix}delete / ${prefix}dlt`,
