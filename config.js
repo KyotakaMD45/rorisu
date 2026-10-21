@@ -14,9 +14,13 @@ const normalizeNumber = (value) => String(value || '').replace(/\D/g, '');
 const sudoNumbers = splitList(process.env.SUDO).map(normalizeNumber).filter(Boolean);
 const configuredPrefixes = splitList(process.env.HANDLERS || '.');
 const pairingMethod = process.env.PAIRING_METHOD?.trim().toLowerCase() || 'qr';
+const warnLimit = Number(process.env.WARN_LIMIT || 3);
 
 if (!['qr', 'code'].includes(pairingMethod)) {
   throw new Error('PAIRING_METHOD doit être « qr » ou « code ».');
+}
+if (!Number.isInteger(warnLimit) || warnLimit < 1 || warnLimit > 10) {
+  throw new Error('WARN_LIMIT doit être un nombre entier compris entre 1 et 10.');
 }
 
 export const config = Object.freeze({
@@ -24,6 +28,7 @@ export const config = Object.freeze({
   prefixes: configuredPrefixes.length ? configuredPrefixes : ['.'],
   sudoNumbers,
   pairingMethod,
+  warnLimit,
   databaseUrl: process.env.DATABASE_URL?.trim() || '',
   language: process.env.LANGUAGE?.trim() || 'fr',
   timeZone: process.env.TZ,

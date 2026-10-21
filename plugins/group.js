@@ -1,8 +1,8 @@
 // Les actions de groupe exigent un groupe, un expéditeur administrateur et un bot administrateur.
 export default {
   name: 'kick',
-  aliases: ['add', 'promote'],
-  description: 'Retire, ajoute ou promeut un membre du groupe.',
+  aliases: ['add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute'],
+  description: 'Gère les membres, les invitations et le mode de discussion du groupe.',
   async execute(context) {
     const { socket, chatId, senderJid, isGroup, args, mentions, quotedMessage, sendReply } = context;
     const sameJid = (left, right) => String(left || '').replace(/:\d+(?=@)/, '') === String(right || '').replace(/:\d+(?=@)/, '');
@@ -28,6 +28,46 @@ export default {
       return;
     }
 
+    if (action === 'invite') {
+      const code = await socket.groupInviteCode(chatId);
+      if (!code) {
+        await sendReply('WhatsApp n’a pas fourni de lien d’invitation pour ce groupe.');
+        return;
+      }
+      await sendReply(`Lien d’invitation du groupe : https://chat.whatsapp.com/${code}`);
+      return;
+    }
+
+    if (action === 'revoke') {
+      const code = await socket.groupRevokeInvite(chatId);
+      if (!code) {
+        await sendReply('WhatsApp n’a pas fourni de nouveau lien d’invitation.');
+        return;
+      }
+      await sendReply(`Le lien précédent est révoqué. Nouveau lien : https://chat.whatsapp.com/${code}`);
+      return;
+    }
+
+    if (action === 'mute' || action === 'unmute') {
+      await socket.groupSettingUpdate(chatId, action === 'mute' ? 'announcement' : 'not_announcement');
+      await sendReply(action === 'mute'
+        ? 'Le groupe est maintenant réservé aux administrateurs.'
+        : 'Tous les membres peuvent à nouveau envoyer des messages.');
+      return;
+    }
+
+    const operations = {
+      kick: ['remove', 'retiré'],
+      add: ['add', 'ajouté'],
+      promote: ['promote', 'promu administrateur'],
+      demote: ['demote', 'rétrogradé'],
+    };
+    const operation = operations[action];
+    if (!operation) {
+      await sendReply('Commande de groupe inconnue.');
+      return;
+    }
+
     const candidates = [
       ...mentions,
       ...(quotedMessage?.key?.participant ? [quotedMessage.key.participant] : []),
@@ -36,27 +76,19 @@ export default {
         return digits ? `${digits}@s.whatsapp.net` : '';
       }),
     ].filter(Boolean);
-
     const target = candidates.find((candidate) => !sameJid(candidate, self));
     if (!target) {
-      await sendReply(`Indiquez un membre en le mentionnant ou en fournissant son numéro après la commande.`);
+      await sendReply('Indiquez un membre en le mentionnant ou en fournissant son numéro après la commande.');
       return;
     }
 
-    const operation = { kick: 'remove', add: 'add', promote: 'promote' }[action];
-    if (!operation) {
-      await sendReply('Commande de groupe inconnue.');
-      return;
-    }
-
-    const result = await socket.groupParticipantsUpdate(chatId, [target], operation);
+    const result = await socket.groupParticipantsUpdate(chatId, [target], operation[0]);
     const outcome = result?.[0]?.status;
     if (outcome && !['200', 200].includes(outcome)) {
       await sendReply(`WhatsApp n’a pas pu effectuer l’action demandée (code ${outcome}).`);
       return;
     }
 
-    const labels = { kick: 'retiré', add: 'ajouté', promote: 'promu administrateur' };
-    await sendReply(`Membre ${labels[action]} avec succès.`);
+    await sendReply(`Membre ${operation[1]} avec succès.`);
   },
 };

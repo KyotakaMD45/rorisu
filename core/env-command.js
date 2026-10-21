@@ -8,6 +8,7 @@ export const restartRequiredVariables = new Set([
   'SUDO',
   'STORAGE_FILE',
   'TZ',
+  'WARN_LIMIT',
 ]);
 
 const blockedVariables = new Set([

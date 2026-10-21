@@ -44,10 +44,18 @@ Avec le préfixe `.` par défaut :
 | --- | --- |
 | `.ping` | Vérifie que le bot est en ligne. |
 | `.list` | Affiche les commandes disponibles. |
+| `.afk [raison]` / `.afk off` | Active ou désactive le statut d’absence et prévient les membres qui vous mentionnent. |
+| `.poll question, choix 1, choix 2` | Crée un sondage WhatsApp avec un choix par vote. |
+| `.antilink on` / `.antilink off` | Active ou désactive la suppression des liens dans le groupe (admin requis ; le bot doit être admin pour supprimer). |
+| `.warn @membre` / `.warn reset @membre` | Avertit un membre ; au troisième avertissement, le bot tente de le retirer s’il est admin et la cible ne l’est pas. |
+| `.filter phrase = réponse` / `.stop phrase` | Configure ou supprime une réponse automatique de groupe (admin requis). |
 | `.sticker` | Convertit une image ou une vidéo en autocollant WebP ; utilisez la commande avec le média ou citez son message. Les médias de plus de 20 Mo sont refusés et les vidéos sont limitées à 10 secondes. |
 | `.kick @membre` | Retire un membre du groupe. |
 | `.add @membre` | Ajoute un membre au groupe. |
 | `.promote @membre` | Nomme un membre administrateur. |
+| `.demote @membre` | Rétrograde un administrateur. |
+| `.invite` / `.revoke` | Affiche le lien d’invitation ou révoque le lien précédent (admin requis). |
+| `.mute` / `.unmute` | Réserve l’envoi aux admins ou le réactive pour tout le groupe. |
 | `.restart` | Redémarre le processus (propriétaire uniquement). |
 | `.update` | Récupère la mise à jour Git en avance rapide et redémarre (propriétaire uniquement). |
 | `.setvar NOM_VARIABLE = valeur` | Ajoute ou modifie une variable de `.env` (propriétaire uniquement). Exemple : `.setvar AUTO_STATUS = on`. |
@@ -74,6 +82,7 @@ Les commandes envoyées depuis le compte WhatsApp lié au bot sont également tr
 | `PAIRING_METHOD` | Méthode d’association WhatsApp : `qr` ou `code`. | `qr` |
 | `AUTO_STATUS` | Transfert en privé des nouveaux statuts : `on` ou `off`. | `off` |
 | `AUTO_UPDATE` | Vérification automatique des mises à jour Git : `on` ou `off`. | `off` |
+| `WARN_LIMIT` | Nombre d’avertissements avant tentative de retrait d’un membre. | `3` |
 | `DATABASE_URL` | URL PostgreSQL ; vide pour le stockage JSON local. | vide |
 | `LANGUAGE` | Langue configurée. | `fr` |
 | `TZ` | Fuseau horaire du processus. | `Europe/Paris` |

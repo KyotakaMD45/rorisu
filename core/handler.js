@@ -1,5 +1,6 @@
 import { normalizeNumber } from '../config.js';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
+import { findParticipant, isGroupAdmin } from './group-utils.js';
 
 // Retire les enveloppes ajoutées par WhatsApp avant de lire le texte ou les médias.
 export function unwrapMessage(message) {
@@ -98,10 +99,71 @@ export function createMessageHandler({ plugins, config, storage, logger }) {
         const isSudo = message.key.fromMe || config.sudoNumbers.includes(senderNumber);
         const text = getMessageText(message).trim();
         const prefix = config.prefixes.find((candidate) => text.startsWith(candidate));
+        if (chatId.endsWith('@g.us')
+          && !message.key.fromMe
+          && await storage.get(`group:${chatId}:antilink`) === true
+          && /(?:https?:\/\/|www\.|wa\.me\/|chat\.whatsapp\.com\/|t\.me\/)/i.test(text)) {
+          const metadata = await socket.groupMetadata(chatId);
+          const participants = metadata.participants || [];
+          const sender = findParticipant(participants, senderJid);
+          if (!isGroupAdmin(sender)) {
+            const bot = findParticipant(participants, socket.user?.id);
+            if (!isGroupAdmin(bot)) {
+              logger.error({ chatId }, 'Anti-liens actif mais le bot n’est plus administrateur du groupe.');
+            } else {
+              await socket.sendMessage(chatId, { delete: message.key });
+              await socket.sendMessage(chatId, { text: 'Les liens ne sont pas autorisés dans ce groupe.' });
+              continue;
+            }
+          }
+        }
+        if (chatId.endsWith('@g.us') && !message.key.fromMe && !prefix) {
+          const filters = await storage.get(`group:${chatId}:filters`) || {};
+          const normalizedText = text.toLowerCase();
+          const match = Object.entries(filters)
+            .find(([trigger]) => normalizedText.includes(trigger));
+          if (match) {
+            await socket.sendMessage(chatId, { text: match[1] });
+          }
+        }
+        const commandName = prefix && prefix.length > 0
+          ? text.slice(prefix.length).trim().split(/\s+/)[0]?.toLowerCase()
+          : undefined;
+        const afkKey = `afk:${senderNumber}`;
+        const senderAfk = senderNumber ? await storage.get(afkKey) : null;
+
+        if (senderAfk && commandName !== 'afk') {
+          await storage.set(afkKey, null);
+          await socket.sendMessage(chatId, { text: 'Tu n’es plus indiqué comme absent.' });
+        }
+
+        if (!message.key.fromMe && message.message) {
+          const mentions = getContextInfo(message).mentionedJid || [];
+          const afkMentions = [];
+          for (const jid of mentions.slice(0, 3)) {
+            const number = normalizeNumber(jid.split('@')[0].split(':')[0]);
+            const afk = number ? await storage.get(`afk:${number}`) : null;
+            if (afk) afkMentions.push({ jid, afk });
+          }
+          if (afkMentions.length) {
+            const lines = afkMentions.map(({ jid, afk }) => {
+              const elapsedMinutes = Math.max(0, Math.floor((Date.now() - afk.since) / 60000));
+              const duration = elapsedMinutes < 60
+                ? `${elapsedMinutes} min`
+                : `${Math.floor(elapsedMinutes / 60)} h`;
+              const reason = afk.reason ? ` — ${afk.reason}` : '';
+              return `@${jid.split('@')[0].split(':')[0]} est absent depuis ${duration}${reason}.`;
+            });
+            await socket.sendMessage(chatId, {
+              text: lines.join('\n'),
+              mentions: afkMentions.map(({ jid }) => jid),
+            });
+          }
+        }
 
         if (!prefix || prefix.length === 0 || text.length === prefix.length) continue;
 
-        const [commandName, ...args] = text.slice(prefix.length).trim().split(/\s+/);
+        const [, ...args] = text.slice(prefix.length).trim().split(/\s+/);
         const plugin = plugins.get(commandName?.toLowerCase());
         if (!plugin) continue;
 

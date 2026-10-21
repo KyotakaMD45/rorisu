@@ -11,6 +11,12 @@ import setvarPlugin from '../plugins/setvar.js';
 import getvarPlugin from '../plugins/getvar.js';
 import allvarPlugin from '../plugins/allvar.js';
 import delvarPlugin from '../plugins/delvar.js';
+import afkPlugin from '../plugins/afk.js';
+import pollPlugin from '../plugins/poll.js';
+import antilinkPlugin from '../plugins/antilink.js';
+import warnPlugin from '../plugins/warn.js';
+import groupPlugin from '../plugins/group.js';
+import filterPlugin from '../plugins/filter.js';
 import { createAutoUpdater } from '../core/auto-update.js';
 import { readEnvVariables, writeEnvVariable } from '../core/env.js';
 import { initializeFeatureSettings } from '../core/feature-settings.js';
@@ -70,7 +76,7 @@ test('charge les options depuis .env et migre les anciennes valeurs du stockage'
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'restart', 'shutdown', 'kick', 'add', 'promote', 'sticker']) {
+  for (const command of ['ping', 'list', 'menu', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'warn', 'filter', 'stop', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
 });
@@ -103,6 +109,277 @@ test('le menu présente les commandes et le préfixe configuré', async () => {
   assert.match(reply, /!update/);
   assert.match(reply, /!setvar AUTO_STATUS/);
   assert.match(reply, /!shutdown/);
+});
+
+test('le sondage valide les choix et utilise le format poll de Baileys', async () => {
+  const sent = [];
+  const replies = [];
+  const context = {
+    args: ['Meilleur', 'fruit, Pomme, Poire'],
+    chatId: 'group@g.us',
+    socket: { async sendMessage(chatId, content) { sent.push({ chatId, content }); } },
+    async sendReply(text) { replies.push(text); },
+  };
+
+  await pollPlugin.execute(context);
+  assert.deepEqual(sent, [{
+    chatId: 'group@g.us',
+    content: { poll: { name: 'Meilleur fruit', values: ['Pomme', 'Poire'], selectableCount: 1 } },
+  }]);
+  await pollPlugin.execute({ ...context, args: ['Question, seul'] });
+  assert.match(replies[0], /au moins deux choix/);
+});
+
+test('AFK se conserve et se désactive sur demande', async () => {
+  const values = new Map();
+  const replies = [];
+  const context = {
+    senderNumber: '33612345678',
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+    async sendReply(text) { replies.push(text); },
+  };
+
+  await afkPlugin.execute({ ...context, args: ['En', 'réunion'] });
+  assert.deepEqual(values.get('afk:33612345678').reason, 'En réunion');
+  await afkPlugin.execute({ ...context, args: ['off'] });
+  assert.equal(values.get('afk:33612345678'), null);
+  assert.match(replies[1], /plus indiqué comme absent/);
+});
+
+test('le gestionnaire signale les mentions AFK et efface le statut au retour', async () => {
+  const values = new Map([
+    ['afk:33612345678', { reason: 'En réunion', since: Date.now() - 120_000 }],
+  ]);
+  const sent = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: [] },
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const socket = {
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+
+  await handler({
+    type: 'notify',
+    messages: [{
+      key: { remoteJid: 'group@g.us', participant: '33687654321@s.whatsapp.net' },
+      message: {
+        extendedTextMessage: {
+          text: 'Tu es là ?',
+          contextInfo: { mentionedJid: ['33612345678@s.whatsapp.net'] },
+        },
+      },
+    }],
+  }, socket);
+  assert.match(sent[0].content.text, /@33612345678 est absent.*En réunion/);
+  assert.deepEqual(sent[0].content.mentions, ['33612345678@s.whatsapp.net']);
+
+  await handler({
+    type: 'notify',
+    messages: [{
+      key: { remoteJid: '33612345678@s.whatsapp.net', participant: '33612345678@s.whatsapp.net' },
+      message: { conversation: 'Je suis de retour' },
+    }],
+  }, socket);
+  assert.equal(values.get('afk:33612345678'), null);
+  assert.match(sent[1].content.text, /plus indiqué comme absent/);
+});
+
+test('antilink est réservé aux administrateurs et sauvegarde son état par groupe', async () => {
+  const values = new Map();
+  const replies = [];
+  const socket = {
+    user: { id: '999@s.whatsapp.net' },
+    async groupMetadata() {
+      return {
+        participants: [
+          { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+          { id: '999@s.whatsapp.net', admin: 'admin' },
+        ],
+      };
+    },
+  };
+  const context = {
+    socket,
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: ['on'],
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+    async sendReply(text) { replies.push(text); },
+  };
+
+  await antilinkPlugin.execute(context);
+  assert.equal(values.get('group:group@g.us:antilink'), true);
+  assert.match(replies[0], /activé pour ce groupe/);
+});
+
+test('antilink supprime les liens envoyés par les non-administrateurs', async () => {
+  const sent = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: [] },
+    storage: {
+      async get(key) { return key === 'group:group@g.us:antilink'; },
+      async set() {},
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const message = {
+    key: {
+      remoteJid: 'group@g.us',
+      participant: '33687654321@s.whatsapp.net',
+      id: 'link-message',
+    },
+    message: { conversation: 'https://example.com' },
+  };
+  const socket = {
+    user: { id: '999@s.whatsapp.net' },
+    async groupMetadata() {
+      return {
+        participants: [
+          { id: '33687654321@s.whatsapp.net' },
+          { id: '999@s.whatsapp.net', admin: 'admin' },
+        ],
+      };
+    },
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+
+  await handler({ type: 'notify', messages: [message] }, socket);
+  assert.deepEqual(sent, [
+    { chatId: 'group@g.us', content: { delete: message.key } },
+    { chatId: 'group@g.us', content: { text: 'Les liens ne sont pas autorisés dans ce groupe.' } },
+  ]);
+});
+
+test('warn compte les avertissements et retire un membre à la limite', async () => {
+  const values = new Map();
+  const sent = [];
+  const socket = {
+    user: { id: '999@s.whatsapp.net' },
+    async groupMetadata() {
+      return {
+        participants: [
+          { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+          { id: '33687654321@s.whatsapp.net' },
+          { id: '999@s.whatsapp.net', admin: 'admin' },
+        ],
+      };
+    },
+    async groupParticipantsUpdate(chatId, jids, action) {
+      sent.push({ chatId, jids, action });
+      return [{ status: 200 }];
+    },
+  };
+  const context = {
+    socket,
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: [],
+    mentions: ['33687654321@s.whatsapp.net'],
+    quotedMessage: null,
+    async sendReply(text) { sent.push(text); },
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+  };
+
+  await warnPlugin.execute(context);
+  await warnPlugin.execute(context);
+  await warnPlugin.execute(context);
+  assert.equal(sent.filter((item) => typeof item === 'string').length, 3);
+  assert.deepEqual(sent.at(-1), {
+    chatId: 'group@g.us',
+    jids: ['33687654321@s.whatsapp.net'],
+    action: 'remove',
+  });
+  assert.equal(values.get('group:group@g.us:warn:33687654321@s.whatsapp.net'), 0);
+});
+
+test('les commandes de groupe exposent mute, invite et demote via Baileys', async () => {
+  const operations = [];
+  const replies = [];
+  const context = {
+    socket: {
+      user: { id: '999@s.whatsapp.net' },
+      async groupMetadata() {
+        return {
+          participants: [
+            { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+            { id: '999@s.whatsapp.net', admin: 'admin' },
+          ],
+        };
+      },
+      async groupInviteCode() { return 'invite-code'; },
+      async groupSettingUpdate(chatId, setting) { operations.push({ chatId, setting }); },
+      async groupParticipantsUpdate(chatId, jids, action) {
+        operations.push({ chatId, jids, action });
+        return [{ status: 200 }];
+      },
+    },
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: [],
+    mentions: [],
+    quotedMessage: null,
+    config: { prefixes: ['.'] },
+    async sendReply(text) { replies.push(text); },
+  };
+
+  await groupPlugin.execute({ ...context, text: '.invite' });
+  await groupPlugin.execute({ ...context, text: '.mute' });
+  await groupPlugin.execute({ ...context, text: '.demote', args: ['33687654321'] });
+  assert.match(replies[0], /https:\/\/chat\.whatsapp\.com\/invite-code/);
+  assert.deepEqual(operations, [
+    { chatId: 'group@g.us', setting: 'announcement' },
+    { chatId: 'group@g.us', jids: ['33687654321@s.whatsapp.net'], action: 'demote' },
+  ]);
+});
+
+test('les filtres de groupe enregistrent et suppriment des réponses', async () => {
+  const values = new Map();
+  const replies = [];
+  const context = {
+    socket: {
+      async groupMetadata() {
+        return { participants: [{ id: '33612345678@s.whatsapp.net', admin: 'admin' }] };
+      },
+    },
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: ['bonjour', '=', 'Salut à tous'],
+    text: '.filter bonjour = Salut à tous',
+    config: { prefixes: ['.'] },
+    async sendReply(text) { replies.push(text); },
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+  };
+
+  await filterPlugin.execute(context);
+  assert.deepEqual(values.get('group:group@g.us:filters'), { bonjour: 'Salut à tous' });
+  await filterPlugin.execute({ ...context, args: ['bonjour'], text: '.stop bonjour' });
+  assert.deepEqual(values.get('group:group@g.us:filters'), {});
+  assert.match(replies[1], /supprimée/);
 });
 
 test('setvar active ou désactive les options et rejette les valeurs invalides', async () => {
@@ -232,7 +509,11 @@ test('le gestionnaire traite les commandes du compte lié et des autres comptes'
     },
   }]]);
   const config = { prefixes: ['.'], sudoNumbers: ['33612345678'] };
-  const storage = { async increment() {} };
+  const storage = {
+    async get() { return null; },
+    async set() {},
+    async increment() {},
+  };
   const logger = { error(error) { errors.push(error); } };
   const socket = {
     async sendMessage(chatId, content, options) {
