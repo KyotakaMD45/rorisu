@@ -383,6 +383,81 @@ test('le webhook transmet les messages entrants avec la clé API', async () => {
   }
 });
 
+test('l’API ne met pas en cache et ne transmet pas les médias à vue unique', async () => {
+  let webhookCalls = 0;
+  let downloaded = false;
+  const webhook = createServer((_request, response) => {
+    webhookCalls += 1;
+    response.writeHead(204).end();
+  });
+  await new Promise((resolve) => webhook.listen(0, '127.0.0.1', resolve));
+  const webhookAddress = webhook.address();
+  const api = createApiServer({
+    config: apiConfig({
+      apiPublicUrl: 'https://bot.example.com',
+      apiWebhookUrl: `http://127.0.0.1:${webhookAddress.port}/messages`,
+    }),
+    logger,
+    async downloadMedia() {
+      downloaded = true;
+      return Buffer.from('private media');
+    },
+  });
+
+  try {
+    const address = await api.listen({ port: 0, host: '127.0.0.1' });
+    api.setSocket('0', {
+      user: { id: '33612345678@s.whatsapp.net' },
+      async sendMessage() { return { key: { id: 'sent' } }; },
+    });
+    await api.handleIncoming({
+      sessionId: '0',
+      socket: { updateMediaMessage() {} },
+      message: {
+        key: {
+          id: 'view-once-image',
+          remoteJid: '33687654321@s.whatsapp.net',
+          fromMe: false,
+        },
+        message: {
+          viewOnceMessageV2: {
+            message: { imageMessage: { mimetype: 'image/jpeg' } },
+          },
+        },
+      },
+    });
+
+    assert.equal(webhookCalls, 0);
+    assert.equal(downloaded, false);
+
+    const mediaResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/media/0/view-once-image`,
+      { headers: { 'x-api-key': apiKey } },
+    );
+    assert.equal(mediaResponse.status, 404);
+
+    const quotedResponse = await fetch(`http://127.0.0.1:${address.port}/api/send`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: '33687654321',
+        type: 'text',
+        text: 'Réponse',
+        quoted: 'view-once-image',
+      }),
+    });
+    assert.equal(quotedResponse.status, 404);
+  } finally {
+    await api.close();
+    await new Promise((resolve, reject) => {
+      webhook.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test('le mode API only transmet les messages mais n’exécute pas les commandes', async () => {
   let executed = false;
   let forwarded = 0;

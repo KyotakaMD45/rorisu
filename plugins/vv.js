@@ -1,28 +1,15 @@
-import { isViewOnceMessage, sendRecoveredMessage } from '../core/message-recovery.js';
+import { isViewOnceMessage } from '../core/message-recovery.js';
 
 export default {
   name: 'vv',
   aliases: [],
-  description: 'Récupère un média à vue unique cité.',
-  async execute({ socket, message, quotedMessage, chatId, logger, sendReply, downloadMedia }) {
+  description: 'Explique la protection des médias à vue unique.',
+  async execute({ quotedMessage, sendReply }) {
     if (!quotedMessage || !isViewOnceMessage(quotedMessage)) {
       await sendReply('Réponds à une photo ou vidéo à vue unique avec .vv.');
       return;
     }
 
-    try {
-      await sendRecoveredMessage({
-        socket,
-        destination: chatId,
-        message: quotedMessage,
-        logger,
-        quoted: message,
-        notice: 'Média à vue unique récupéré',
-        downloadMedia,
-      });
-    } catch (error) {
-      logger.error({ err: error, messageId: quotedMessage.key?.id }, 'Échec de la récupération du média à vue unique.');
-      await sendReply(error.message || 'Impossible de récupérer ce média à vue unique.');
-    }
+    await sendReply('Les médias à vue unique ne sont pas enregistrés ni retransmis. Demande à la personne de te le renvoyer si elle est d’accord.');
   },
 };

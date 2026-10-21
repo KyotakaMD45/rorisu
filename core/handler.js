@@ -4,7 +4,6 @@ import { findParticipant, isGroupAdmin } from './group-utils.js';
 import { unwrapMessage } from './message-content.js';
 import {
   cacheMessage,
-  forwardViewOnce,
   getRecoveryDestination,
   isViewOnceMessage,
   messageCacheKey,
@@ -42,11 +41,9 @@ export function createMessageHandler({
   storage,
   logger,
   onIncoming,
-  forwardViewOnceMessage = forwardViewOnce,
 }) {
   const processingStatusIds = new Set();
   const cachedMessages = new Map();
-  const processedViewOnceIds = new Set();
 
   async function handleUpsert(event, socket, lifecycle) {
     // Ignore l'historique ajouté à la connexion pour éviter de rejouer d'anciennes commandes.
@@ -68,7 +65,7 @@ export function createMessageHandler({
         if (config.apiMode === 'only') continue;
         if (chatId === 'status@broadcast') {
           const messageId = message.key.id;
-          if (message.key.fromMe) continue;
+          if (message.key.fromMe || isViewOnceMessage(message)) continue;
 
           if (messageId && await storage.get('feature:auto_status_view') === true) {
             const viewedStatuses = await storage.get('auto_status:viewed');
@@ -120,43 +117,8 @@ export function createMessageHandler({
         }
 
         const antiDeleteSettings = await storage.get('feature:anti_delete');
-        const antiVvSettings = await storage.get('feature:anti_vv');
-        const antiViewOnceEnabled = antiVvSettings === true || antiVvSettings?.enabled === true;
-        if (antiDeleteSettings) cacheMessage(cachedMessages, message);
-        if (antiViewOnceEnabled && !message.key.fromMe && isViewOnceMessage(message)) {
-          const messageId = message.key.id;
-          if (messageId && !processedViewOnceIds.has(messageId)) {
-            const viewOnceKey = messageCacheKey(message.key) || messageId;
-            processedViewOnceIds.add(viewOnceKey);
-            while (processedViewOnceIds.size > 300) {
-              processedViewOnceIds.delete(processedViewOnceIds.values().next().value);
-            }
-            try {
-              const configuredDestination = antiVvSettings === true
-                ? 'p'
-                : antiVvSettings.destination || 'p';
-              const ownerJid = config.sudoNumbers[0]
-                ? `${config.sudoNumbers[0]}@s.whatsapp.net`
-                : '';
-              const destination = configuredDestination === 'p'
-                ? ownerJid
-                : configuredDestination === 'g'
-                  ? chatId
-                  : configuredDestination;
-              if (!destination) {
-                logger.error('ANTIVV est activé vers le propriétaire mais aucun numéro n’est configuré dans SUDO.');
-              } else {
-                await forwardViewOnceMessage({
-                  socket,
-                  destination,
-                  message,
-                  logger,
-                });
-              }
-            } catch (error) {
-              logger.error({ err: error, messageId }, 'Impossible de transférer le média à vue unique.');
-            }
-          }
+        if (antiDeleteSettings && !isViewOnceMessage(message)) {
+          cacheMessage(cachedMessages, message);
         }
 
         if (!message.key.fromMe

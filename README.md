@@ -57,7 +57,7 @@ Les options sont désactivées par défaut et se règlent en privé avec `.setva
 .setvar AUTO_UPDATE = on
 ```
 
-`AUTO_STATUS` transfère les statuts reçus au propriétaire. `AUTO_UPDATE` vérifie les mises à jour GitHub à la connexion puis toutes les cinq minutes. Pour désactiver une option, remplacez `on` par `off`. Le propriétaire reçoit aussi un message privé à la connexion avec l’état des fonctions.
+`AUTO_STATUS` transfère les statuts reçus au propriétaire, sauf les médias à vue unique. `AUTO_UPDATE` vérifie les mises à jour GitHub à la connexion puis toutes les cinq minutes. Pour désactiver une option, remplacez `on` par `off`. Le propriétaire reçoit aussi un message privé à la connexion avec l’état des fonctions.
 
 ## Commandes
 
@@ -68,7 +68,7 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | `.list`, `.alive`, `.ping` | Aide et état du bot. |
 | `.gemini`, `.ai`, `.image`, `.imagine` | Assistant multimodal et génération d’images. |
 | `.sticker`, `.poll`, `.afk`, `.react`, `.dlt` | Outils de discussion; `.dlt` supprime le message cité avec les permissions nécessaires. |
-| `.delete p/g/JID/off`, `.antidelete`, `.vv`, `.antivv on/off/JID` | Récupération anti-suppression, restauration manuelle d’un média à vue unique cité, et transfert optionnel des médias à vue unique. Limite média : 20 Mo. |
+| `.delete p/g/JID/off`, `.antidelete`, `.vv`, `.antivv off` | Récupération anti-suppression des messages ordinaires et information sur la protection des médias à vue unique. Limite média anti-suppression : 20 Mo. |
 | `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
@@ -78,7 +78,7 @@ Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre
 
 Pour l’anti-suppression, le propriétaire peut utiliser `.delete p` pour recevoir les messages supprimés en privé, `.delete g` pour les renvoyer dans la discussion d’origine, ou `.delete off` pour désactiver la fonction. Les filtres facultatifs sont `pm`, `gm`, `no-pm` et `no-gm`; un numéro international ou un JID WhatsApp peut aussi être fourni à la place de `p` ou `g`. La récupération utilise un cache mémoire des 300 derniers messages, effacé au redémarrage. `.delete` sans option ou `.dlt` sur un message cité conserve la suppression manuelle.
 
-`.vv` retransmet dans la discussion le média à vue unique auquel on répond. `.antivv on` transfère automatiquement les prochains médias à vue unique au propriétaire; `.antivv on g` les renvoie dans la discussion d’origine; `.antivv on <JID>` les envoie vers un JID ou numéro choisi. `.antivv off` désactive la fonction et `.antivv info` affiche son état. Utilise ces fonctions en respectant le consentement des personnes qui ont envoyé les médias.
+`.vv` explique que les médias à vue unique ne sont pas enregistrés ni retransmis; demande à l’expéditeur de les renvoyer s’il est d’accord. Ces médias sont aussi exclus du cache anti-suppression, des statuts transférés et des webhooks/API. `.antivv` confirme que le transfert automatique est désactivé, y compris pour les anciens réglages.
 
 Les détails des sessions Signal cryptographiques sont masqués dans le terminal; ne partagez jamais les journaux bruts ou les fichiers d’authentification WhatsApp.
 

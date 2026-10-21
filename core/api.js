@@ -6,6 +6,7 @@ import https from 'node:https';
 import net from 'node:net';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { getMessageText, unwrapMessage } from './handler.js';
+import { isViewOnceMessage } from './message-recovery.js';
 
 const maximumBodySize = 1024 * 1024;
 const maximumTextLength = 65_536;
@@ -449,7 +450,7 @@ export function createApiServer({
       });
     },
     async handleIncoming({ message, sessionId, socket }) {
-      if (message.key?.fromMe || !message.key?.id) return;
+      if (message.key?.fromMe || !message.key?.id || isViewOnceMessage(message)) return;
       const chatId = message.key.remoteJid;
       const from = message.key.participant || chatId;
       if (!chatId || !from || chatId === 'status@broadcast') return;

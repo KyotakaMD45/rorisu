@@ -213,31 +213,31 @@ test('le message de connexion privé inclut la session, le numéro et l’état 
     gemini: 'activé',
   });
 
-  test('les journaux Signal masquent le contenu des sessions cryptographiques', () => {
-    const calls = [];
-    const consoleObject = {
-      info(...args) { calls.push(['info', ...args]); },
-      warn(...args) { calls.push(['warn', ...args]); },
-    };
-
-    suppressSensitiveSessionLogs(consoleObject);
-    consoleObject.info('Closing session:', { currentRatchet: { privateKey: 'secret' } });
-    consoleObject.warn('Opening session:', { currentRatchet: { privateKey: 'secret' } });
-    consoleObject.warn('USync fetch yielded no results');
-
-    assert.deepEqual(calls, [
-      ['info', '[Signal] Mise à jour de session (détails masqués).'],
-      ['warn', '[Signal] Mise à jour de session (détails masqués).'],
-      ['warn', 'USync fetch yielded no results'],
-    ]);
-  });
-
   assert.match(welcome, /👋 Bienvenue et merci d’avoir utilisé \*teste\*/);
   assert.match(welcome, /✅ \*teste\* est en ligne !/);
   assert.match(welcome, /Session : 0/);
   assert.match(welcome, /Numéro : 22505320662/);
   assert.match(welcome, /Envoie \*\.menu\*/);
   assert.match(welcome, /Mise à jour automatique : activée/);
+});
+
+test('les journaux Signal masquent les sessions et ignorent les avertissements répétitifs', () => {
+  const calls = [];
+  const consoleObject = {
+    info(...args) { calls.push(['info', ...args]); },
+    warn(...args) { calls.push(['warn', ...args]); },
+  };
+
+  suppressSensitiveSessionLogs(consoleObject);
+  consoleObject.info('Closing session:', { currentRatchet: { privateKey: 'secret' } });
+  consoleObject.warn('Opening session:', { currentRatchet: { privateKey: 'secret' } });
+  consoleObject.warn('USync fetch yielded no results for pending PNs');
+  consoleObject.warn('Decrypted message with closed session.');
+
+  assert.deepEqual(calls, [
+    ['info', '[Signal] Mise à jour de session (détails masqués).'],
+    ['warn', '[Signal] Mise à jour de session (détails masqués).'],
+  ]);
 });
 
 test('alive affiche l’état des options persistantes', async () => {
@@ -1025,6 +1025,47 @@ test('AUTO_STATUS transfère une seule fois le texte au propriétaire en privé'
     content: { text: 'Statut de 33687654321@s.whatsapp.net\nUn statut texte' },
   }]);
   assert.deepEqual(errors, []);
+});
+
+test('AUTO_STATUS ignore les statuts à vue unique', async () => {
+  const sent = [];
+  const reads = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: ['33612345678'] },
+    storage: {
+      async get(key) {
+        return ['feature:auto_status', 'feature:auto_status_view'].includes(key);
+      },
+      async set() {},
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const socket = {
+    async readMessages(keys) { reads.push(...keys); },
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+
+  await handler({
+    type: 'notify',
+    messages: [{
+      key: {
+        remoteJid: 'status@broadcast',
+        participant: '33687654321@s.whatsapp.net',
+        id: 'view-once-status',
+        fromMe: false,
+      },
+      message: {
+        viewOnceMessageV2: {
+          message: { imageMessage: { mimetype: 'image/jpeg' } },
+        },
+      },
+    }],
+  }, socket);
+
+  assert.deepEqual(reads, []);
+  assert.deepEqual(sent, []);
 });
 
 test('AUTO_STATUS_VIEW lit chaque statut une seule fois et SEND_READ accuse les messages entrants', async () => {

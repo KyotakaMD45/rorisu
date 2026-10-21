@@ -154,8 +154,6 @@ export async function createConnection({
       const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
       const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
       const antiDelete = await storage.get('feature:anti_delete') ? 'activée' : 'désactivée';
-      const antiVvSettings = await storage.get('feature:anti_vv');
-      const antiVv = antiVvSettings === true || antiVvSettings?.enabled === true ? 'activée' : 'désactivée';
       const prefix = config.prefixes?.[0] || '.';
       const welcome = buildOwnerWelcome({
         botName: config.botName,
@@ -167,7 +165,7 @@ export async function createConnection({
         sendRead,
         autoUpdate,
         antiDelete,
-        antiVv,
+        antiVv: 'désactivée (confidentialité)',
         gemini: config.gemini.apiKey ? 'activé' : 'désactivé (clé API manquante)',
       });
 

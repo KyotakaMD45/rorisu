@@ -135,34 +135,6 @@ export async function sendRecoveredMessage({
   await socket.sendMessage(destination, payload, quoted ? { quoted } : {});
 }
 
-export async function forwardViewOnce({
-  socket,
-  destination,
-  message,
-  logger,
-  downloadMedia,
-}) {
-  const media = findMessageMedia(message);
-  if (!media || !['image', 'video', 'audio'].includes(media.mediaType)) {
-    throw new Error('Ce message éphémère ne contient pas un média pris en charge.');
-  }
-  const buffer = await getMediaBuffer(message, media, socket, logger, downloadMedia);
-  const sender = message.key.participant || message.key.remoteJid;
-  const caption = `Média à vue unique reçu de ${sender}${media.content.caption ? `\n${media.content.caption}` : ''}`;
-  if (media.mediaType === 'audio') {
-    await socket.sendMessage(destination, { text: caption });
-  }
-  const payload = {
-    [media.mediaType]: buffer,
-    ...(media.mediaType === 'audio' ? { ptt: Boolean(media.content.ptt) } : {}),
-    ...(media.mediaType !== 'audio' ? {
-      mimetype: media.content.mimetype || 'application/octet-stream',
-      caption,
-    } : {}),
-  };
-  await socket.sendMessage(destination, payload);
-}
-
 export function shouldRecoverDeletedMessage(settings, chatId) {
   if (!settings || typeof settings !== 'object') return false;
   const isGroup = chatId.endsWith('@g.us');
