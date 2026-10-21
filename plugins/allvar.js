@@ -4,7 +4,7 @@ import { isSensitiveEnvName } from '../core/env-command.js';
 export default {
   name: 'allvar',
   aliases: [],
-  description: 'Affiche les variables .env (propriétaire uniquement).',
+  description: 'Affiche les variables config.env (propriétaire uniquement).',
   async execute({ isSudo, sendReply, envFilePath }) {
     if (!isSudo) {
       await sendReply('Cette commande est réservée au propriétaire du bot.');
@@ -14,7 +14,7 @@ export default {
     const variables = await readEnvVariables(envFilePath);
     const entries = Object.entries(variables).sort(([first], [second]) => first.localeCompare(second));
     if (!entries.length) {
-      await sendReply('Aucune variable trouvée dans .env.');
+      await sendReply('Aucune variable trouvée dans config.env.');
       return;
     }
 

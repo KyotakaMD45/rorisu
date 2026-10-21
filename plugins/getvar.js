@@ -4,7 +4,7 @@ import { isSensitiveEnvName, normalizeEnvName } from '../core/env-command.js';
 export default {
   name: 'getvar',
   aliases: [],
-  description: 'Affiche une variable .env (propriétaire uniquement).',
+  description: 'Affiche une variable config.env (propriétaire uniquement).',
   async execute({ isSudo, args, sendReply, envFilePath }) {
     if (!isSudo) {
       await sendReply('Cette commande est réservée au propriétaire du bot.');
@@ -19,7 +19,7 @@ export default {
 
     const variables = await readEnvVariables(envFilePath);
     if (!Object.hasOwn(variables, name)) {
-      await sendReply(`${name} est introuvable dans .env.`);
+      await sendReply(`${name} est introuvable dans config.env.`);
       return;
     }
 

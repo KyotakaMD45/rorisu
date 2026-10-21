@@ -1,5 +1,8 @@
 node_modules/
 .env
+.env.*
+!.env.example
+config.env
 auth_info_baileys/
 data/store.json
 data/store.json.writing

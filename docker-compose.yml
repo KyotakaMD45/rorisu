@@ -3,7 +3,7 @@ services:
     build: .
     restart: unless-stopped
     env_file:
-      - .env
+      - config.env
     environment:
       AUTH_DIRECTORY: /app/state/auth_info_baileys
       STORAGE_FILE: /app/state/data/store.json

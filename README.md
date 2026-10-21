@@ -26,10 +26,10 @@ Installez Docker Compose, clonez le dépôt et préparez la configuration :
 ```sh
 git clone https://github.com/KyotakaMD45/rorisu-baileys-bot.git
 cd rorisu-baileys-bot
-cp .env.example .env
+cp config.env.example config.env
 ```
 
-Renseignez `SUDO` dans `.env`, puis démarrez le bot :
+Renseignez `SUDO` dans `config.env`, puis démarrez le bot :
 
 ```sh
 docker compose up -d --build
@@ -54,7 +54,7 @@ Le script installe Node.js LTS si nécessaire (avec `winget`), télécharge le b
 npm install
 ```
 
-Copiez `.env.example` en `.env`, puis configurez au minimum `SUDO` avec le numéro WhatsApp du propriétaire, au format international sans `+` :
+Copiez `config.env.example` en `config.env`, puis configurez au minimum `SUDO` avec le numéro WhatsApp du propriétaire, au format international sans `+` :
 
 ```env
 BOT_NAME=RORISU
@@ -71,9 +71,11 @@ TZ=Europe/Paris
 
 `PAIRING_METHOD` choisit la méthode d’association : `qr` (par défaut) affiche un QR code dans le terminal ; `code` affiche un code à saisir sur le téléphone.
 
+`config.env` est le fichier de configuration principal. Les anciens déploiements qui n’ont encore que `.env` restent compatibles : RORISU lit `.env` comme solution de repli et le copie vers `config.env` lors de la première modification d’une variable.
+
 ### API HTTP
 
-L’API peut envoyer des messages texte et transmettre les messages entrants à un webhook. Configurez une clé longue et imprévisible dans `.env` avant de l’activer :
+L’API peut envoyer des messages texte et transmettre les messages entrants à un webhook. Configurez une clé longue et imprévisible dans `config.env` avant de l’activer :
 
 ```env
 API_MODE=true
@@ -105,7 +107,7 @@ Avec `API_WEBHOOK_URL`, les nouveaux messages entrants sont envoyés en JSON à 
 npm start
 ```
 
-Lors de la première connexion, le QR code s’affiche dans le terminal. Sur WhatsApp, ouvrez **Appareils connectés → Connecter un appareil** et scannez-le. Pour utiliser un code à la place, définissez `PAIRING_METHOD=code` dans `.env`, puis choisissez **Associer avec un numéro de téléphone** et saisissez le code affiché. Les identifiants sont conservés dans `auth_info_baileys/` ; ne partagez pas ce dossier. Baileys y stocke séparément les identifiants et les clés de session/synchronisation, d’où le grand nombre de petits fichiers JSON. Ne les supprimez pas manuellement : cela peut rendre la session inutilisable et nécessiter une nouvelle association.
+Lors de la première connexion, le QR code s’affiche dans le terminal. Sur WhatsApp, ouvrez **Appareils connectés → Connecter un appareil** et scannez-le. Pour utiliser un code à la place, définissez `PAIRING_METHOD=code` dans `config.env`, puis choisissez **Associer avec un numéro de téléphone** et saisissez le code affiché. Les identifiants sont conservés dans `auth_info_baileys/` ; ne partagez pas ce dossier. Baileys y stocke séparément les identifiants et les clés de session/synchronisation, d’où le grand nombre de petits fichiers JSON. Ne les supprimez pas manuellement : cela peut rendre la session inutilisable et nécessiter une nouvelle association.
 
 ## Commandes
 
@@ -136,19 +138,19 @@ Avec le préfixe `.` par défaut :
 | `.mute` / `.unmute` | Réserve l’envoi aux admins ou le réactive pour tout le groupe. |
 | `.restart` | Redémarre le processus (propriétaire uniquement). |
 | `.update` | Récupère la mise à jour Git en avance rapide et redémarre (propriétaire uniquement). |
-| `.setvar NOM_VARIABLE = valeur` | Ajoute ou modifie une variable de `.env` (propriétaire uniquement). Exemple : `.setvar AUTO_STATUS = on`. |
-| `.getvar NOM_VARIABLE` | Affiche une variable de `.env` (les secrets sont masqués). |
-| `.allvar` | Liste les variables de `.env` en masquant les secrets. |
-| `.delvar NOM_VARIABLE` | Supprime une variable de `.env`. Les options gérées doivent être désactivées avec `.setvar AUTO_STATUS = off` ou `.setvar AUTO_UPDATE = off`. |
+| `.setvar NOM_VARIABLE = valeur` | Ajoute ou modifie une variable de `config.env` (propriétaire uniquement). Exemple : `.setvar AUTO_STATUS = on`. |
+| `.getvar NOM_VARIABLE` | Affiche une variable de `config.env` (les secrets sont masqués). |
+| `.allvar` | Liste les variables de `config.env` en masquant les secrets. |
+| `.delvar NOM_VARIABLE` | Supprime une variable de `config.env`. Les options gérées doivent être désactivées avec `.setvar AUTO_STATUS = off` ou `.setvar AUTO_UPDATE = off`. |
 | `.setvar AUTO_STATUS = on` / `off` | Active ou désactive le transfert privé des statuts reçus vers le propriétaire. |
 | `.setvar AUTO_STATUS_VIEW = on` / `off` | Marque automatiquement comme lus les statuts reçus. |
 | `.setvar SEND_READ = on` / `off` | Envoie automatiquement les accusés de lecture des messages entrants. |
 | `.setvar AUTO_UPDATE = on` / `off` | Active ou désactive la vérification des mises à jour Git toutes les cinq minutes. |
 | `.shutdown` | Arrête le processus (propriétaire uniquement). |
 
-Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `getvar`, `allvar`, `delvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. Les commandes de variables écrivent directement dans le fichier `.env`; les secrets sont masqués dans les réponses, et les variables nécessaires au démarrage (`SUDO`, `DATABASE_URL`, `PAIRING_METHOD`, etc.) déclenchent un redémarrage après modification ou suppression. Les variables d’environnement dangereuses comme `NODE_OPTIONS` ne peuvent pas être modifiées par ces commandes. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
+Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `getvar`, `allvar`, `delvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. Les commandes de variables écrivent directement dans `config.env`; les secrets sont masqués dans les réponses, et les variables nécessaires au démarrage (`SUDO`, `DATABASE_URL`, `PAIRING_METHOD`, etc.) déclenchent un redémarrage après modification ou suppression. Les variables d’environnement dangereuses comme `NODE_OPTIONS` ne peuvent pas être modifiées par ces commandes. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
 
-À chaque démarrage où WhatsApp se connecte, le propriétaire reçoit en privé le message d’accueil ainsi que l’état des options automatiques. En cas d’échec d’envoi temporaire, le bot réessaie jusqu’à trois fois et consigne les erreurs dans le terminal. Lorsque `AUTO_STATUS` est activé, les nouveaux statuts textuels, images et vidéos sont transmis au propriétaire, au maximum une fois par identifiant de message récent. `AUTO_STATUS_VIEW` marque les statuts reçus comme lus indépendamment de leur transfert. `SEND_READ` envoie les accusés de lecture des messages entrants. Ces deux options sont désactivées par défaut. Les valeurs de `.env` sont chargées au démarrage et synchronisées avec le stockage du bot.
+À chaque démarrage où WhatsApp se connecte, le propriétaire reçoit en privé le message d’accueil ainsi que l’état des options automatiques. En cas d’échec d’envoi temporaire, le bot réessaie jusqu’à trois fois et consigne les erreurs dans le terminal. Lorsque `AUTO_STATUS` est activé, les nouveaux statuts textuels, images et vidéos sont transmis au propriétaire, au maximum une fois par identifiant de message récent. `AUTO_STATUS_VIEW` marque les statuts reçus comme lus indépendamment de leur transfert. `SEND_READ` envoie les accusés de lecture des messages entrants. Ces deux options sont désactivées par défaut. Les valeurs de `config.env` sont chargées au démarrage et synchronisées avec le stockage du bot.
 
 Les commandes envoyées depuis le compte WhatsApp lié au bot sont également traitées et ont les droits du propriétaire.
 

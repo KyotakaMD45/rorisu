@@ -52,7 +52,7 @@ test('le stockage JSON conserve les valeurs et les compteurs', async () => {
   }
 });
 
-test('charge les options depuis .env et migre les anciennes valeurs du stockage', async () => {
+test('charge les options depuis la configuration et migre les anciennes valeurs du stockage', async () => {
   const envFilePath = path.resolve('data/test-feature-settings.env');
   const previousAutoStatus = process.env.AUTO_STATUS;
   const previousAutoStatusView = process.env.AUTO_STATUS_VIEW;
@@ -689,8 +689,8 @@ test('setvar active ou désactive les options et rejette les valeurs invalides',
 
     assert.equal(values.get('feature:auto_status'), true);
     assert.equal(values.get('feature:auto_update'), false);
-    assert.match(replies[0], /activé.*\.env/);
-    assert.match(replies[1], /désactivée.*\.env/);
+    assert.match(replies[0], /activé.*config\.env/);
+    assert.match(replies[1], /désactivée.*config\.env/);
     assert.match(replies[2], /accepte uniquement on ou off/);
     assert.equal(process.env.AUTO_STATUS, 'on');
     assert.equal(process.env.AUTO_UPDATE, 'off');
@@ -767,7 +767,7 @@ test('setvar gère AUTO_STATUS_VIEW et SEND_READ sans redémarrage', async () =>
   }
 });
 
-test('écrit les variables .env sans conserver les doublons', async () => {
+test('écrit les variables de configuration sans conserver les doublons', async () => {
   const envFilePath = path.resolve('data/test-env.env');
   try {
     await fs.writeFile(envFilePath, 'AUTO_STATUS=off\n# conservé\nAUTO_STATUS=on\n', 'utf8');

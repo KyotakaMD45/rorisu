@@ -56,7 +56,7 @@ try {
   Expand-Archive -LiteralPath $archivePath -DestinationPath $temporaryDirectory
 
   $sourceDirectory = Join-Path $temporaryDirectory 'rorisu-baileys-bot-master'
-  if (-not (Test-Path -LiteralPath (Join-Path $sourceDirectory '.env.example'))) {
+  if (-not (Test-Path -LiteralPath (Join-Path $sourceDirectory 'config.env.example'))) {
     Stop-Installation "le dossier source attendu est absent dans l'archive téléchargée."
   }
 
@@ -67,8 +67,8 @@ try {
 
   Move-Item -LiteralPath $sourceDirectory -Destination $installDirectory
 
-  $environmentFile = Join-Path $installDirectory '.env'
-  $environment = [System.IO.File]::ReadAllText((Join-Path $installDirectory '.env.example'))
+  $environmentFile = Join-Path $installDirectory 'config.env'
+  $environment = [System.IO.File]::ReadAllText((Join-Path $installDirectory 'config.env.example'))
   $environment = [regex]::Replace($environment, '(?m)^SUDO=.*$', "SUDO=$sudoNumber")
   [System.IO.File]::WriteAllText($environmentFile, $environment, [System.Text.UTF8Encoding]::new($false))
 

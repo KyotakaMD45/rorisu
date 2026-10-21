@@ -59,8 +59,8 @@ read -r -p "Numéro WhatsApp du propriétaire (indicatif international, sans +) 
   || fail "impossible de lire le numéro WhatsApp depuis le terminal."
 [[ "$sudo_number" =~ ^[0-9]{6,15}$ ]] || fail "le numéro doit contenir entre 6 et 15 chiffres."
 
-cp "$install_dir/.env.example" "$install_dir/.env"
-sed -i "s/^SUDO=.*/SUDO=$sudo_number/" "$install_dir/.env"
+cp "$install_dir/config.env.example" "$install_dir/config.env"
+sed -i "s/^SUDO=.*/SUDO=$sudo_number/" "$install_dir/config.env"
 
 printf 'Installation des dépendances du bot...\n'
 npm --prefix "$install_dir" ci --omit=dev
@@ -94,4 +94,4 @@ printf '\nInstallation terminée. Le bot démarre automatiquement avec le VPS.\n
 printf 'Pour afficher le QR code de connexion WhatsApp :\n'
 printf '  sudo journalctl -u %s -f\n' "$service_name"
 printf 'État du service : sudo systemctl status %s\n' "$service_name"
-printf 'Configuration : %s/.env\n' "$install_dir"
+printf 'Configuration : %s/config.env\n' "$install_dir"

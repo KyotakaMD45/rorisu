@@ -1,4 +1,10 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const projectDirectory = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(projectDirectory, 'config.env') });
+dotenv.config({ path: path.join(projectDirectory, '.env') });
 
 // Configure le fuseau horaire avant toute création de date ou de connexion.
 process.env.TZ = process.env.TZ || 'Europe/Paris';

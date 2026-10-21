@@ -1,7 +1,9 @@
 .git
 .env
 .env.*
+config.env
 !.env.example
+!config.env.example
 node_modules
 auth_info_baileys
 auth_info_baileys-*

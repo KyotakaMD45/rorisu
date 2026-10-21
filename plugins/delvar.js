@@ -9,7 +9,7 @@ import {
 export default {
   name: 'delvar',
   aliases: [],
-  description: 'Supprime une variable .env (propriétaire uniquement).',
+  description: 'Supprime une variable config.env (propriétaire uniquement).',
   async execute({ isSudo, args, sendReply, lifecycle, chatId, envFilePath }) {
     if (!isSudo) {
       await sendReply('Cette commande est réservée au propriétaire du bot.');
@@ -32,13 +32,13 @@ export default {
 
     const variables = await readEnvVariables(envFilePath);
     if (!Object.hasOwn(variables, name)) {
-      await sendReply(`${name} est introuvable dans .env.`);
+      await sendReply(`${name} est introuvable dans config.env.`);
       return;
     }
 
     await deleteEnvVariable(name, envFilePath);
     delete process.env[name];
-    await sendReply(`${name} a été supprimée de .env.`);
+    await sendReply(`${name} a été supprimée de config.env.`);
     if (restartRequiredVariables.has(name)) await lifecycle?.restart(chatId);
   },
 };

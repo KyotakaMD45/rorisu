@@ -1,10 +1,13 @@
 import fs from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const environmentFilePath = path.join(projectDirectory, 'config.env');
+const legacyEnvironmentFilePath = path.join(projectDirectory, '.env');
 let writeQueue = Promise.resolve();
 
 function validateName(name) {
@@ -20,6 +23,18 @@ async function updateEnvFileNow(name, value, filePath) {
   }
 
   const absolutePath = path.resolve(filePath);
+  if (absolutePath === environmentFilePath) {
+    try {
+      await fs.access(absolutePath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      try {
+        await fs.copyFile(legacyEnvironmentFilePath, absolutePath, fsConstants.COPYFILE_EXCL);
+      } catch (copyError) {
+        if (copyError.code !== 'ENOENT' && copyError.code !== 'EEXIST') throw copyError;
+      }
+    }
+  }
   let existing;
   try {
     existing = await fs.readFile(absolutePath, 'utf8');
@@ -56,25 +71,32 @@ async function updateEnvFileNow(name, value, filePath) {
   }
 }
 
-export function writeEnvVariable(name, value, filePath = path.join(projectDirectory, '.env')) {
+export function writeEnvVariable(name, value, filePath = environmentFilePath) {
   const result = writeQueue.then(() => updateEnvFileNow(name, value, filePath));
   writeQueue = result.catch(() => {});
   return result;
 }
 
-export function deleteEnvVariable(name, filePath = path.join(projectDirectory, '.env')) {
+export function deleteEnvVariable(name, filePath = environmentFilePath) {
   const result = writeQueue.then(() => updateEnvFileNow(name, null, filePath));
   writeQueue = result.catch(() => {});
   return result;
 }
 
-export async function readEnvVariables(filePath = path.join(projectDirectory, '.env')) {
+export async function readEnvVariables(filePath = environmentFilePath) {
+  const absolutePath = path.resolve(filePath);
   let contents;
   try {
-    contents = await fs.readFile(filePath, 'utf8');
+    contents = await fs.readFile(absolutePath, 'utf8');
   } catch (error) {
-    if (error.code === 'ENOENT') return {};
-    throw error;
+    if (error.code !== 'ENOENT') throw error;
+    if (absolutePath !== environmentFilePath) return {};
+    try {
+      contents = await fs.readFile(legacyEnvironmentFilePath, 'utf8');
+    } catch (legacyError) {
+      if (legacyError.code === 'ENOENT') return {};
+      throw legacyError;
+    }
   }
   return dotenv.parse(contents);
 }

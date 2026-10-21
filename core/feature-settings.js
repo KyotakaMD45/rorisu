@@ -42,7 +42,7 @@ export function parseFeatureValue(value, name) {
     case '0':
       return false;
     default:
-      throw new Error(`${name} doit être réglé sur on ou off dans le fichier .env.`);
+      throw new Error(`${name} doit être réglé sur on ou off dans le fichier config.env.`);
   }
 }
 

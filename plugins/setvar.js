@@ -9,7 +9,7 @@ import {
 export default {
   name: 'setvar',
   aliases: [],
-  description: 'Ajoute ou modifie une variable .env (propriétaire uniquement).',
+  description: 'Ajoute ou modifie une variable config.env (propriétaire uniquement).',
   async execute({ isSudo, args, sendReply, storage, lifecycle, chatId, envFilePath }) {
     if (!isSudo) {
       await sendReply('Cette commande est réservée au propriétaire du bot.');
@@ -45,11 +45,11 @@ export default {
       await writeEnvVariable(name, normalizedValue, envFilePath);
       await storage.set(setting.storageKey, enabled);
       process.env[name] = normalizedValue;
-      response = `${setting.label} : ${enabled ? setting.enabled : setting.disabled} (enregistré dans .env).`;
+      response = `${setting.label} : ${enabled ? setting.enabled : setting.disabled} (enregistré dans config.env).`;
     } else {
       await writeEnvVariable(name, value, envFilePath);
       process.env[name] = value;
-      response = `${name} a été enregistré dans .env.`;
+      response = `${name} a été enregistré dans config.env.`;
       if (restartRequiredVariables.has(name)) {
         response += ' Redémarrage requis pour appliquer la configuration.';
       } else {
