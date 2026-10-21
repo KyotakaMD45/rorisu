@@ -87,6 +87,7 @@ test('le chargeur référence les commandes et alias intégrés', async () => {
   for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
+  assert.equal(plugins.get('stop').name, 'filter');
 });
 
 test('ping répond Pong puis affiche la latence en millisecondes', async () => {
@@ -105,17 +106,23 @@ test('ping répond Pong puis affiche la latence en millisecondes', async () => {
 test('le menu présente les commandes et le préfixe configuré', async () => {
   let reply;
   await listPlugin.execute({
-    config: { botName: 'RORISU', prefixes: ['!'] },
+    config: { botName: 'RORISU', prefixes: ['!', '.'] },
+    storage: { async get(key) { return key === 'feature:auto_status'; } },
     async sendReply(text) {
       reply = text;
     },
   });
 
   assert.match(reply, /RORISU • MENU/);
+  assert.match(reply, /Préfixe\(s\) : ! \/ \./);
   assert.match(reply, /!ping/);
   assert.match(reply, /!sticker/);
+  assert.match(reply, /!antiword on\|off\|add\|remove\|list/);
+  assert.match(reply, /!setgreet \/ !setgoodbye/);
+  assert.match(reply, /AUTO_STATUS : ✅ Activé/);
+  assert.match(reply, /AUTO_UPDATE : ❌ Désactivée/);
+  assert.match(reply, /!setvar AUTO_STATUS = on\|off/);
   assert.match(reply, /!update/);
-  assert.match(reply, /!setvar AUTO_STATUS/);
   assert.match(reply, /!shutdown/);
 });
 

@@ -1,7 +1,7 @@
 // L'arrêt est strictement limité aux numéros déclarés dans SUDO.
 export default {
   name: 'shutdown',
-  aliases: ['stop'],
+  aliases: [],
   description: 'Arrête le bot (propriétaire uniquement).',
   async execute({ isSudo, sendReply, lifecycle, chatId }) {
     if (!isSudo) {

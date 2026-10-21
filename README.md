@@ -44,7 +44,7 @@ Avec le préfixe `.` par défaut :
 | --- | --- |
 | `.ping` | Vérifie que le bot est en ligne. |
 | `.alive` | Affiche l’état du bot et l’état des options automatiques. |
-| `.list` | Affiche les commandes disponibles. |
+| `.list` | Affiche les commandes classées par catégories et l’état des options automatiques. |
 | `.react emoji` | Réagit au message cité. |
 | `.delete` / `.dlt` | Supprime son propre message ou, avec les droits admin, le message cité d’un groupe. |
 | `.afk [raison]` / `.afk off` | Active ou désactive le statut d’absence et prévient les membres qui vous mentionnent. |
