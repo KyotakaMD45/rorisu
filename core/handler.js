@@ -39,7 +39,7 @@ function getContextInfo(message) {
 }
 
 // Relie les mises à jour WhatsApp aux commandes et aux plugins chargés.
-export function createMessageHandler({ plugins, config, storage, logger }) {
+export function createMessageHandler({ plugins, config, storage, logger, onIncoming }) {
   const processingStatusIds = new Set();
 
   return async function handleUpsert(event, socket, lifecycle) {
@@ -50,10 +50,31 @@ export function createMessageHandler({ plugins, config, storage, logger }) {
       try {
         const chatId = message.key?.remoteJid;
         if (!chatId) continue;
+        if (chatId !== 'status@broadcast' && onIncoming) {
+          try {
+            Promise.resolve(onIncoming({ message, socket })).catch((error) => {
+              logger.error({ err: error }, 'Impossible de traiter le message entrant pour l’API.');
+            });
+          } catch (error) {
+            logger.error({ err: error }, 'Impossible de traiter le message entrant pour l’API.');
+          }
+        }
+        if (config.apiMode === 'only') continue;
         if (chatId === 'status@broadcast') {
-          if (await storage.get('feature:auto_status') !== true || message.key.fromMe) continue;
-
           const messageId = message.key.id;
+          if (message.key.fromMe) continue;
+
+          if (messageId && await storage.get('feature:auto_status_view') === true) {
+            const viewedStatuses = await storage.get('auto_status:viewed');
+            const seenStatusIds = Array.isArray(viewedStatuses) ? viewedStatuses : [];
+            if (!seenStatusIds.includes(messageId)) {
+              await socket.readMessages([message.key]);
+              await storage.set('auto_status:viewed', [...seenStatusIds, messageId].slice(-500));
+            }
+          }
+
+          if (await storage.get('feature:auto_status') !== true) continue;
+
           const author = message.key.participant || 'Auteur inconnu';
           const seenStatuses = await storage.get('auto_status:seen') || [];
           if (!messageId
@@ -90,6 +111,12 @@ export function createMessageHandler({ plugins, config, storage, logger }) {
             processingStatusIds.delete(messageId);
           }
           continue;
+        }
+
+        if (!message.key.fromMe
+          && message.key.id
+          && await storage.get('feature:send_read') === true) {
+          await socket.readMessages([message.key]);
         }
 
         const senderJid = message.key.participant || chatId;

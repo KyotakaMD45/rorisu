@@ -8,6 +8,20 @@ export const featureSettings = new Map([
     enabled: 'activé',
     disabled: 'désactivé',
   }],
+  ['AUTO_STATUS_VIEW', {
+    envName: 'AUTO_STATUS_VIEW',
+    storageKey: 'feature:auto_status_view',
+    label: 'lecture automatique des statuts',
+    enabled: 'activée',
+    disabled: 'désactivée',
+  }],
+  ['SEND_READ', {
+    envName: 'SEND_READ',
+    storageKey: 'feature:send_read',
+    label: 'accusés de lecture automatiques',
+    enabled: 'activés',
+    disabled: 'désactivés',
+  }],
   ['AUTO_UPDATE', {
     envName: 'AUTO_UPDATE',
     storageKey: 'feature:auto_update',

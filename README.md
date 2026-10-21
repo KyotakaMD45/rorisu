@@ -7,6 +7,30 @@ Bot WhatsApp modulaire écrit en Node.js avec Baileys. Il propose une associatio
 - Node.js 20 ou supérieur.
 - Une base PostgreSQL facultative. Sans base, le stockage est assuré dans `data/store.json`.
 
+### Installation rapide sur un VPS Debian/Ubuntu
+
+Connectez-vous au VPS avec un utilisateur disposant de `sudo`, puis lancez :
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.sh | bash
+```
+
+Le script installe Git et Node.js si nécessaire, demande le numéro WhatsApp du propriétaire, configure le bot et crée un service `systemd` pour le démarrer automatiquement. Pour afficher le QR code lors de la première association, exécutez la commande indiquée à la fin de l’installation (`sudo journalctl -u rorisu-baileys-bot -f`). Le script ne prend pas en charge les autres distributions Linux.
+
+Le script d’installation est disponible dans [`install.sh`](./install.sh). Vérifiez-le avant de l’exécuter si vous préférez inspecter les commandes qu’il lance.
+
+### Installation rapide sur Windows
+
+Ouvrez PowerShell et exécutez :
+
+```powershell
+irm https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.ps1 | iex
+```
+
+Le script installe Node.js LTS si nécessaire (avec `winget`), télécharge le bot, demande le numéro WhatsApp du propriétaire et démarre le bot dans la fenêtre PowerShell. Scannez le QR code affiché et gardez cette fenêtre ouverte pendant l’utilisation. Le script Windows est disponible dans [`install.ps1`](./install.ps1).
+
+### Installation manuelle
+
 ```sh
 npm install
 ```
@@ -27,6 +51,31 @@ TZ=Europe/Paris
 `HANDLERS` accepte un ou plusieurs préfixes séparés par des virgules. `SUDO` contient le numéro du propriétaire du bot. En mode `code`, le premier numéro reçoit le code d’association. `DATABASE_URL` peut contenir une URL PostgreSQL complète (`postgres://...`) ; la table `bot_store` est créée automatiquement. Le fuseau horaire est appliqué au processus Node.js.
 
 `PAIRING_METHOD` choisit la méthode d’association : `qr` (par défaut) affiche un QR code dans le terminal ; `code` affiche un code à saisir sur le téléphone.
+
+### API HTTP
+
+L’API peut envoyer des messages texte et transmettre les messages entrants à un webhook. Configurez une clé longue et imprévisible dans `.env` avant de l’activer :
+
+```env
+API_MODE=true
+API_KEY=remplacez-par-une-cle-secrete-longue
+PORT=3000
+API_WEBHOOK_URL=
+```
+
+`API_MODE=true` garde les commandes WhatsApp actives ; `API_MODE=only` désactive le traitement des commandes et utilise le bot comme passerelle. Chaque appel doit envoyer la clé dans l’en-tête `x-api-key`. Pour le moment, l’API prend en charge uniquement les messages texte et une session (`0`).
+
+```sh
+curl -X POST http://localhost:3000/api/send \
+  -H "x-api-key: remplacez-par-une-cle-secrete-longue" \
+  -H "Content-Type: application/json" \
+  -d '{"to":"33612345678","type":"text","text":"Bonjour depuis l’API"}'
+
+curl http://localhost:3000/api/sessions \
+  -H "x-api-key: remplacez-par-une-cle-secrete-longue"
+```
+
+Avec `API_WEBHOOK_URL`, les nouveaux messages entrants sont envoyés en JSON à cette URL, avec la même clé dans `x-api-key`. N’exposez pas le port HTTP directement sur Internet : placez l’API derrière un proxy HTTPS et protégez la clé. Les envois de médias, les liens de téléchargement et les sessions multiples ne sont pas encore pris en charge.
 
 ## Démarrer et associer WhatsApp
 
@@ -70,12 +119,14 @@ Avec le préfixe `.` par défaut :
 | `.allvar` | Liste les variables de `.env` en masquant les secrets. |
 | `.delvar NOM_VARIABLE` | Supprime une variable de `.env`. Les options gérées doivent être désactivées avec `.setvar AUTO_STATUS = off` ou `.setvar AUTO_UPDATE = off`. |
 | `.setvar AUTO_STATUS = on` / `off` | Active ou désactive le transfert privé des statuts reçus vers le propriétaire. |
+| `.setvar AUTO_STATUS_VIEW = on` / `off` | Marque automatiquement comme lus les statuts reçus. |
+| `.setvar SEND_READ = on` / `off` | Envoie automatiquement les accusés de lecture des messages entrants. |
 | `.setvar AUTO_UPDATE = on` / `off` | Active ou désactive la vérification des mises à jour Git toutes les cinq minutes. |
 | `.shutdown` | Arrête le processus (propriétaire uniquement). |
 
 Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `getvar`, `allvar`, `delvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. Les commandes de variables écrivent directement dans le fichier `.env`; les secrets sont masqués dans les réponses, et les variables nécessaires au démarrage (`SUDO`, `DATABASE_URL`, `PAIRING_METHOD`, etc.) déclenchent un redémarrage après modification ou suppression. Les variables d’environnement dangereuses comme `NODE_OPTIONS` ne peuvent pas être modifiées par ces commandes. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
 
-À chaque démarrage où WhatsApp se connecte, le propriétaire reçoit en privé le message d’accueil ainsi que l’état de `AUTO_STATUS` et `AUTO_UPDATE`. En cas d’échec d’envoi temporaire, le bot réessaie jusqu’à trois fois et consigne les erreurs dans le terminal. Lorsque `AUTO_STATUS` est activé, les nouveaux statuts textuels, images et vidéos sont transmis au propriétaire, au maximum une fois par identifiant de message récent. Les valeurs de `.env` sont chargées au démarrage et synchronisées avec le stockage du bot.
+À chaque démarrage où WhatsApp se connecte, le propriétaire reçoit en privé le message d’accueil ainsi que l’état des options automatiques. En cas d’échec d’envoi temporaire, le bot réessaie jusqu’à trois fois et consigne les erreurs dans le terminal. Lorsque `AUTO_STATUS` est activé, les nouveaux statuts textuels, images et vidéos sont transmis au propriétaire, au maximum une fois par identifiant de message récent. `AUTO_STATUS_VIEW` marque les statuts reçus comme lus indépendamment de leur transfert. `SEND_READ` envoie les accusés de lecture des messages entrants. Ces deux options sont désactivées par défaut. Les valeurs de `.env` sont chargées au démarrage et synchronisées avec le stockage du bot.
 
 Les commandes envoyées depuis le compte WhatsApp lié au bot sont également traitées et ont les droits du propriétaire.
 
@@ -88,7 +139,14 @@ Les commandes envoyées depuis le compte WhatsApp lié au bot sont également tr
 | `SUDO` | Numéros pouvant redémarrer ou arrêter le bot ; le premier sert à l’association. | aucune |
 | `PAIRING_METHOD` | Méthode d’association WhatsApp : `qr` ou `code`. | `qr` |
 | `AUTO_STATUS` | Transfert en privé des nouveaux statuts : `on` ou `off`. | `off` |
+| `AUTO_STATUS_VIEW` | Lecture automatique des statuts reçus : `on` ou `off`. | `off` |
+| `SEND_READ` | Envoi automatique des accusés de lecture : `on` ou `off`. | `off` |
 | `AUTO_UPDATE` | Vérification automatique des mises à jour Git : `on` ou `off`. | `off` |
+| `API_MODE` | API HTTP : `false`, `true` ou `only`. | `false` |
+| `API_KEY` | Clé d’authentification de l’API HTTP. Obligatoire si l’API est activée. | vide |
+| `PORT` | Port HTTP de l’API. | `3000` |
+| `API_WEBHOOK_URL` | URL recevant les messages entrants en JSON. | vide |
+| `EXTERNAL_PLUGINS_DIRECTORY` | Dossier des extensions locales `.js` / `.mjs`. | `eplugins` |
 | `WARN_LIMIT` | Nombre d’avertissements avant tentative de retrait d’un membre. | `3` |
 | `DATABASE_URL` | URL PostgreSQL ; vide pour le stockage JSON local. | vide |
 | `LANGUAGE` | Langue configurée. | `fr` |
@@ -98,7 +156,7 @@ PostgreSQL stocke les valeurs dans `bot_store`. En mode fichier, les données et
 
 ## Développement
 
-Les commandes sont des modules ES dans `plugins/`. Chaque plugin exporte par défaut un objet `{ name, aliases, description, execute }`. Le chargeur importe les plugins au démarrage.
+Les commandes sont des modules ES dans `plugins/`. Chaque plugin exporte par défaut un objet `{ name, aliases, description, execute }`. Les extensions locales `.js` ou `.mjs` peuvent être placées dans `eplugins/` (ou dans le dossier défini par `EXTERNAL_PLUGINS_DIRECTORY`) et sont chargées au démarrage. Seuls les plugins de confiance doivent être ajoutés : ils s’exécutent avec les mêmes droits que le bot. Les noms et alias doivent rester uniques.
 
 ```sh
 npm test

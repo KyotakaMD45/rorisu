@@ -54,6 +54,8 @@ test('le stockage JSON conserve les valeurs et les compteurs', async () => {
 test('charge les options depuis .env et migre les anciennes valeurs du stockage', async () => {
   const envFilePath = path.resolve('data/test-feature-settings.env');
   const previousAutoStatus = process.env.AUTO_STATUS;
+  const previousAutoStatusView = process.env.AUTO_STATUS_VIEW;
+  const previousSendRead = process.env.SEND_READ;
   const previousAutoUpdate = process.env.AUTO_UPDATE;
   const values = new Map([['feature:auto_status', true]]);
   const storage = {
@@ -63,18 +65,30 @@ test('charge les options depuis .env et migre les anciennes valeurs du stockage'
 
   try {
     delete process.env.AUTO_STATUS;
+    delete process.env.AUTO_STATUS_VIEW;
+    delete process.env.SEND_READ;
     delete process.env.AUTO_UPDATE;
     await initializeFeatureSettings(storage, envFilePath);
 
     assert.equal(values.get('feature:auto_status'), true);
+    assert.equal(values.get('feature:auto_status_view'), false);
+    assert.equal(values.get('feature:send_read'), false);
     assert.equal(values.get('feature:auto_update'), false);
     assert.equal(process.env.AUTO_STATUS, 'on');
+    assert.equal(process.env.AUTO_STATUS_VIEW, 'off');
+    assert.equal(process.env.SEND_READ, 'off');
     assert.equal(process.env.AUTO_UPDATE, 'off');
     assert.equal((await readEnvVariables(envFilePath)).AUTO_STATUS, 'on');
+    assert.equal((await readEnvVariables(envFilePath)).AUTO_STATUS_VIEW, 'off');
+    assert.equal((await readEnvVariables(envFilePath)).SEND_READ, 'off');
     assert.equal((await readEnvVariables(envFilePath)).AUTO_UPDATE, 'off');
   } finally {
     if (previousAutoStatus === undefined) delete process.env.AUTO_STATUS;
     else process.env.AUTO_STATUS = previousAutoStatus;
+    if (previousAutoStatusView === undefined) delete process.env.AUTO_STATUS_VIEW;
+    else process.env.AUTO_STATUS_VIEW = previousAutoStatusView;
+    if (previousSendRead === undefined) delete process.env.SEND_READ;
+    else process.env.SEND_READ = previousSendRead;
     if (previousAutoUpdate === undefined) delete process.env.AUTO_UPDATE;
     else process.env.AUTO_UPDATE = previousAutoUpdate;
     await fs.rm(envFilePath, { force: true });
@@ -90,6 +104,32 @@ test('le chargeur référence les commandes et alias intégrés', async () => {
   assert.equal(plugins.get('stop').name, 'filter');
 });
 
+test('le chargeur ajoute les extensions locales sans autoriser les collisions', async () => {
+  const externalPluginsDirectory = path.resolve('data/test-eplugins');
+  await fs.rm(externalPluginsDirectory, { recursive: true, force: true });
+  await fs.mkdir(externalPluginsDirectory, { recursive: true });
+  try {
+    await fs.writeFile(
+      path.join(externalPluginsDirectory, 'custom.js'),
+      'export default { name: "external-test", aliases: ["external-test-alias"], async execute() {} };',
+    );
+    let plugins = await loadPlugins({ externalDirectory: externalPluginsDirectory });
+    assert.equal(plugins.get('external-test-alias')?.name, 'external-test');
+
+    await fs.rm(path.join(externalPluginsDirectory, 'custom.js'));
+    await fs.writeFile(
+      path.join(externalPluginsDirectory, 'collision.js'),
+      'export default { name: "ping", async execute() {} };',
+    );
+    await assert.rejects(
+      loadPlugins({ externalDirectory: externalPluginsDirectory }),
+      /est déjà utilisé/,
+    );
+  } finally {
+    await fs.rm(externalPluginsDirectory, { recursive: true, force: true });
+  }
+});
+
 test('ping répond Pong puis affiche la latence en millisecondes', async () => {
   const replies = [];
   await pingPlugin.execute({
@@ -103,11 +143,10 @@ test('ping répond Pong puis affiche la latence en millisecondes', async () => {
   assert.match(replies[1], /^Latence : \d+ ms$/);
 });
 
-test('le menu présente les commandes et le préfixe configuré', async () => {
+test('le menu liste simplement les commandes sans afficher les réglages automatiques', async () => {
   let reply;
   await listPlugin.execute({
     config: { botName: 'RORISU', prefixes: ['!', '.'] },
-    storage: { async get(key) { return key === 'feature:auto_status'; } },
     async sendReply(text) {
       reply = text;
     },
@@ -117,13 +156,12 @@ test('le menu présente les commandes et le préfixe configuré', async () => {
   assert.match(reply, /Préfixe\(s\) : ! \/ \./);
   assert.match(reply, /!ping/);
   assert.match(reply, /!sticker/);
-  assert.match(reply, /!antiword on\|off\|add\|remove\|list/);
+  assert.match(reply, /!antiword/);
   assert.match(reply, /!setgreet \/ !setgoodbye/);
-  assert.match(reply, /AUTO_STATUS : ✅ Activé/);
-  assert.match(reply, /AUTO_UPDATE : ❌ Désactivée/);
-  assert.match(reply, /!setvar AUTO_STATUS = on\|off/);
+  assert.match(reply, /!setvar/);
   assert.match(reply, /!update/);
   assert.match(reply, /!shutdown/);
+  assert.doesNotMatch(reply, /AUTO_STATUS|SEND_READ|AUTO_UPDATE|—/);
 });
 
 test('alive affiche l’état des options persistantes', async () => {
@@ -135,6 +173,8 @@ test('alive affiche l’état des options persistantes', async () => {
   });
   assert.match(reply, /RORISU est en ligne/);
   assert.match(reply, /AUTO_STATUS : activé/);
+  assert.match(reply, /AUTO_STATUS_VIEW : désactivée/);
+  assert.match(reply, /SEND_READ : désactivés/);
   assert.match(reply, /AUTO_UPDATE : désactivée/);
 });
 
@@ -673,6 +713,45 @@ test('setvar active ou désactive les options et rejette les valeurs invalides',
   }
 });
 
+test('setvar gère AUTO_STATUS_VIEW et SEND_READ sans redémarrage', async () => {
+  const envFilePath = path.resolve('data/test-read-settings.env');
+  const previousAutoStatusView = process.env.AUTO_STATUS_VIEW;
+  const previousSendRead = process.env.SEND_READ;
+  const values = new Map();
+  const replies = [];
+  try {
+    await setvarPlugin.execute({
+      isSudo: true,
+      args: ['AUTO_STATUS_VIEW', '=', 'on'],
+      storage: { async set(key, value) { values.set(key, value); } },
+      envFilePath,
+      async sendReply(text) { replies.push(text); },
+    });
+    await setvarPlugin.execute({
+      isSudo: true,
+      args: ['SEND_READ', 'off'],
+      storage: { async set(key, value) { values.set(key, value); } },
+      envFilePath,
+      async sendReply(text) { replies.push(text); },
+    });
+
+    assert.equal(values.get('feature:auto_status_view'), true);
+    assert.equal(values.get('feature:send_read'), false);
+    assert.equal(process.env.AUTO_STATUS_VIEW, 'on');
+    assert.equal(process.env.SEND_READ, 'off');
+    assert.match(replies[0], /lecture automatique des statuts : activée/);
+    assert.match(replies[1], /accusés de lecture automatiques : désactivés/);
+    assert.equal((await readEnvVariables(envFilePath)).AUTO_STATUS_VIEW, 'on');
+    assert.equal((await readEnvVariables(envFilePath)).SEND_READ, 'off');
+  } finally {
+    if (previousAutoStatusView === undefined) delete process.env.AUTO_STATUS_VIEW;
+    else process.env.AUTO_STATUS_VIEW = previousAutoStatusView;
+    if (previousSendRead === undefined) delete process.env.SEND_READ;
+    else process.env.SEND_READ = previousSendRead;
+    await fs.rm(envFilePath, { force: true });
+  }
+});
+
 test('écrit les variables .env sans conserver les doublons', async () => {
   const envFilePath = path.resolve('data/test-env.env');
   try {
@@ -813,4 +892,49 @@ test('AUTO_STATUS transfère une seule fois le texte au propriétaire en privé'
     content: { text: 'Statut de 33687654321@s.whatsapp.net\nUn statut texte' },
   }]);
   assert.deepEqual(errors, []);
+});
+
+test('AUTO_STATUS_VIEW lit chaque statut une seule fois et SEND_READ accuse les messages entrants', async () => {
+  const values = new Map([
+    ['feature:auto_status', false],
+    ['feature:auto_status_view', true],
+    ['feature:send_read', true],
+    ['auto_status:viewed', []],
+  ]);
+  const readKeys = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: [] },
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const socket = {
+    async readMessages(keys) { readKeys.push(...keys); },
+    async sendMessage() {},
+  };
+  const status = {
+    key: {
+      remoteJid: 'status@broadcast',
+      participant: '33687654321@s.whatsapp.net',
+      id: 'status-to-view',
+    },
+    message: { conversation: 'Un statut' },
+  };
+
+  await handler({ type: 'notify', messages: [status] }, socket);
+  await handler({ type: 'notify', messages: [status] }, socket);
+  await handler({
+    type: 'notify',
+    messages: [{
+      key: { remoteJid: '33687654321@s.whatsapp.net', id: 'incoming-message' },
+      message: { conversation: 'Bonjour' },
+    }],
+  }, socket);
+
+  assert.deepEqual(readKeys.map(({ id }) => id), ['status-to-view', 'incoming-message']);
+  assert.deepEqual(values.get('auto_status:viewed'), ['status-to-view']);
 });

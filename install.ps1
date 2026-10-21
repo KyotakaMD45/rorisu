@@ -1,0 +1,97 @@
+$ErrorActionPreference = 'Stop'
+
+$repositoryArchive = 'https://github.com/KyotakaMD45/rorisu-baileys-bot/archive/refs/heads/master.zip'
+$installDirectory = Join-Path $HOME 'rorisu-baileys-bot'
+
+function Stop-Installation([string]$Message) {
+  Write-Error "Erreur : $Message"
+  exit 1
+}
+
+if (Test-Path -LiteralPath $installDirectory) {
+  Stop-Installation "le dossier existe déjà : $installDirectory. Renommez-le ou supprimez-le avant de relancer l'installation."
+}
+
+$nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeCommand) {
+  $wingetCommand = Get-Command winget -ErrorAction SilentlyContinue
+  if (-not $wingetCommand) {
+    Stop-Installation 'Node.js 20 ou supérieur est nécessaire. Installez-le depuis https://nodejs.org/ puis relancez ce script.'
+  }
+
+  Write-Host 'Installation de Node.js LTS...'
+  & $wingetCommand.Source install --id OpenJS.NodeJS.LTS --exact --accept-source-agreements --accept-package-agreements
+  if ($LASTEXITCODE -ne 0) {
+    Stop-Installation "l'installation de Node.js a échoué (code $LASTEXITCODE)."
+  }
+
+  $nodeDirectories = @(
+    (Join-Path $env:ProgramFiles 'nodejs'),
+    (Join-Path $env:LOCALAPPDATA 'Programs\nodejs')
+  )
+  foreach ($nodeDirectory in $nodeDirectories) {
+    if ((Test-Path -LiteralPath $nodeDirectory) -and $env:Path -notlike "*$nodeDirectory*") {
+      $env:Path = "$nodeDirectory;$env:Path"
+    }
+  }
+
+  $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+  if (-not $nodeCommand) {
+    Stop-Installation 'Node.js a été installé. Fermez puis rouvrez PowerShell et relancez cette commande.'
+  }
+}
+
+$nodeVersion = & $nodeCommand.Source --version
+if ($nodeVersion -notmatch '^v(?<major>\d+)\.' -or [int]$Matches.major -lt 20) {
+  Stop-Installation "Node.js 20 ou supérieur est requis ; version détectée : $nodeVersion."
+}
+
+$temporaryDirectory = Join-Path $env:TEMP ("rorisu-install-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $temporaryDirectory | Out-Null
+
+try {
+  $archivePath = Join-Path $temporaryDirectory 'source.zip'
+  Write-Host 'Téléchargement du bot...'
+  Invoke-WebRequest -Uri $repositoryArchive -OutFile $archivePath
+  Expand-Archive -LiteralPath $archivePath -DestinationPath $temporaryDirectory
+
+  $sourceDirectory = Join-Path $temporaryDirectory 'rorisu-baileys-bot-master'
+  if (-not (Test-Path -LiteralPath (Join-Path $sourceDirectory '.env.example'))) {
+    Stop-Installation "le dossier source attendu est absent dans l'archive téléchargée."
+  }
+
+  $sudoNumber = Read-Host 'Numéro WhatsApp du propriétaire (indicatif international, sans +)'
+  if ($sudoNumber -notmatch '^[0-9]{6,15}$') {
+    Stop-Installation 'le numéro doit contenir entre 6 et 15 chiffres.'
+  }
+
+  Move-Item -LiteralPath $sourceDirectory -Destination $installDirectory
+
+  $environmentFile = Join-Path $installDirectory '.env'
+  $environment = [System.IO.File]::ReadAllText((Join-Path $installDirectory '.env.example'))
+  $environment = [regex]::Replace($environment, '(?m)^SUDO=.*$', "SUDO=$sudoNumber")
+  [System.IO.File]::WriteAllText($environmentFile, $environment, [System.Text.UTF8Encoding]::new($false))
+
+  Write-Host 'Installation des dépendances...'
+  Push-Location $installDirectory
+  try {
+    & npm ci
+    if ($LASTEXITCODE -ne 0) {
+      Stop-Installation "l'installation des dépendances a échoué (code $LASTEXITCODE)."
+    }
+
+    Write-Host 'Installation terminée. Le bot démarre ; scannez le QR code avec WhatsApp.'
+    & npm start
+    if ($LASTEXITCODE -ne 0) {
+      Stop-Installation "le bot s'est arrêté avec le code $LASTEXITCODE."
+    }
+  }
+  finally {
+    Pop-Location
+  }
+}
+finally {
+  if (Test-Path -LiteralPath $temporaryDirectory) {
+    Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force
+  }
+}

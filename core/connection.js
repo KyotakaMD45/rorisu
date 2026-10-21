@@ -13,7 +13,7 @@ import { handleGroupParticipantsUpdate } from './group-events.js';
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Crée la session persistante, affiche un code d’association et reconnecte après une coupure.
-export async function createConnection({ config, onMessages, storage }) {
+export async function createConnection({ config, onMessages, onSocket, storage }) {
   const authDirectory = path.resolve(projectDirectory, config.authDirectory);
   const { state, saveCreds } = await useMultiFileAuthState(authDirectory);
   if (config.pairingMethod === 'qr' && !state.creds.registered && state.creds.pairingCode) {
@@ -73,23 +73,23 @@ export async function createConnection({ config, onMessages, storage }) {
 
   async function notifyOwner() {
     if (welcomeMessageSent) return;
+    if (!config.sudoNumbers[0]) {
+      welcomeMessageSent = true;
+      return;
+    }
 
     try {
       const ownerJid = `${config.sudoNumbers[0]}@s.whatsapp.net`;
       const autoStatus = await storage.get('feature:auto_status') === true ? 'activé' : 'désactivé';
+      const autoStatusView = await storage.get('feature:auto_status_view') === true ? 'activée' : 'désactivée';
+      const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
       const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
-      const welcome = `Welcome to our awesome community! Come hang out with us for fun chats, cool ideas, and lots of love. Remember the rules: no sharing links, spamming, spreading hate, or being mean. We're all about respect and kindness here.
-Telegram Group https://t.me/+TYpRg-AoN4gzNzNl
-Must Read Rules!!!
+      const welcome = `✅ ${config.botName} est connecté à WhatsApp.
 
-Check out https://levanter.site for some awesome add-ons to make things even more awesome. Got questions? Just ask our Telegram bot @levanter_group_bot for instant help, or read up on our FAQ at https://levanter.site
-
-Dive into exciting talks, unleash your inner creativity, and make new friends. Let's explore, inspire each other, and grow as a group! Can't wait to see you there! 🔥
-
-https://whatsapp.com/channel/0029Va92msU59PwYuplVMH2L
-
-Fonctions activées/désactivées :
+État des fonctions :
 - AUTO_STATUS : ${autoStatus}
+- AUTO_STATUS_VIEW : ${autoStatusView}
+- SEND_READ : ${sendRead}
 - AUTO_UPDATE : ${autoUpdate}`;
 
       await socket.sendMessage(ownerJid, { text: welcome });
@@ -124,6 +124,7 @@ Fonctions activées/désactivées :
       markOnlineOnConnect: false,
       syncFullHistory: false,
     });
+    onSocket?.(socket);
 
     socket.ev.on('creds.update', saveCreds);
     socket.ev.on('messages.upsert', (event) => onMessages(event, socket, lifecycle));
