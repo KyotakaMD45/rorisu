@@ -74,6 +74,7 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
 | `.setsudo [list|add <numéro>|remove <numéro>]` | Gère les propriétaires du bot; le dernier propriétaire ne peut pas être retiré. |
+| `.prefix [préfixe]` | Affiche ou modifie le préfixe du bot (propriétaire uniquement; redémarrage automatique). Plusieurs préfixes peuvent être séparés par des virgules. |
 | `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie les mises à jour ou les installe, puis redémarre (propriétaire uniquement). |
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
