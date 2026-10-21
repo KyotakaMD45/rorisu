@@ -91,6 +91,33 @@ test('la configuration anti-suppression est réservée au propriétaire et peut 
   assert.match(replies[1], /réservée au propriétaire/);
 });
 
+test('antidelete on/off active et désactive la destination privée par défaut', async () => {
+  const values = new Map();
+  const replies = [];
+  const context = {
+    args: ['on'],
+    text: '.antidelete on',
+    config: { prefixes: ['.'] },
+    isSudo: true,
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+    async sendReply(text) { replies.push(text); },
+  };
+
+  await deletePlugin.execute(context);
+  assert.deepEqual(values.get('feature:anti_delete'), {
+    destination: 'p',
+    scope: null,
+  });
+
+  await deletePlugin.execute({ ...context, args: ['off'], text: '.antidelete off' });
+  assert.equal(values.get('feature:anti_delete'), null);
+  assert.match(replies[0], /propriétaire en privé/);
+  assert.match(replies[1], /désactivée/);
+});
+
 test('antivv reste désactivé pour protéger les médias à vue unique', async () => {
   const values = new Map();
   const replies = [];
