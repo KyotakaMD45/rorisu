@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/mast
 irm https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.ps1 | iex
 ```
 
-Les installateurs demandent le numéro WhatsApp du propriétaire. Scannez le QR code affiché pour associer le bot. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Sur un VPS, si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
+Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Scannez le QR code affiché pour associer le bot. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
 
 ## Configuration
 

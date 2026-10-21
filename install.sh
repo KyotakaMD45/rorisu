@@ -88,14 +88,17 @@ node_is_supported || fail "Node.js 20 ou supérieur n’a pas pu être installé
 printf 'Téléchargement du projet...\n'
 run_install_user git clone --depth 1 --branch master "$repository_url" "$install_dir"
 
+run_install_user cp "$install_dir/config.env.example" "$install_dir/config.env"
+run_install_user chmod 600 "$install_dir/config.env"
+printf 'Configuration par défaut créée dans %s/config.env.\n' "$install_dir"
+printf 'Les autres options pourront être ajoutées ou modifiées après l’installation.\n'
+
 [[ -r /dev/tty ]] || fail "un terminal interactif est nécessaire pour saisir le numéro WhatsApp."
 read -r -p "Numéro WhatsApp du propriétaire (indicatif international, sans +) : " sudo_number </dev/tty \
   || fail "impossible de lire le numéro WhatsApp depuis le terminal."
 [[ "$sudo_number" =~ ^[0-9]{6,15}$ ]] || fail "le numéro doit contenir entre 6 et 15 chiffres."
 
-run_install_user cp "$install_dir/config.env.example" "$install_dir/config.env"
 run_install_user sed -i "s/^SUDO=.*/SUDO=$sudo_number/" "$install_dir/config.env"
-run_install_user chmod 600 "$install_dir/config.env"
 
 printf 'Installation des dépendances du bot...\n'
 run_install_user npm --prefix "$install_dir" ci --omit=dev
@@ -129,4 +132,4 @@ printf '\nInstallation terminée. Le bot démarre automatiquement avec le VPS.\n
 printf 'Pour afficher le QR code de connexion WhatsApp :\n'
 printf '  sudo journalctl -u %s -f\n' "$service_name"
 printf 'État du service : sudo systemctl status %s\n' "$service_name"
-printf 'Configuration : %s/config.env\n' "$install_dir"
+printf 'Configuration : %s/config.env (les réglages Gemini/API et autres options peuvent être complétés après).\n' "$install_dir"
