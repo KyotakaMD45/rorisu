@@ -50,11 +50,15 @@ Avec le préfixe `.` par défaut :
 | `.promote @membre` | Nomme un membre administrateur. |
 | `.restart` | Redémarre le processus (propriétaire uniquement). |
 | `.update` | Récupère la mise à jour Git en avance rapide et redémarre (propriétaire uniquement). |
+| `.setvar NOM_VARIABLE = valeur` | Ajoute ou modifie une variable de `.env` (propriétaire uniquement). Exemple : `.setvar AUTO_STATUS = on`. |
+| `.getvar NOM_VARIABLE` | Affiche une variable de `.env` (les secrets sont masqués). |
+| `.allvar` | Liste les variables de `.env` en masquant les secrets. |
+| `.delvar NOM_VARIABLE` | Supprime une variable de `.env`. Les options gérées doivent être désactivées avec `.setvar AUTO_STATUS = off` ou `.setvar AUTO_UPDATE = off`. |
 | `.setvar AUTO_STATUS = on` / `off` | Active ou désactive le transfert privé des statuts reçus vers le propriétaire. |
-| `.setvar AUTO_UPDATE = on` / `off` | Active ou désactive la vérification des mises à jour Git toutes les cinq minutes (propriétaire uniquement). |
+| `.setvar AUTO_UPDATE = on` / `off` | Active ou désactive la vérification des mises à jour Git toutes les cinq minutes. |
 | `.shutdown` | Arrête le processus (propriétaire uniquement). |
 
-Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. `.setvar` enregistre également le réglage dans `.env` pour qu’il survive aux redémarrages. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
+Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `getvar`, `allvar`, `delvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. Les commandes de variables écrivent directement dans le fichier `.env`; les secrets sont masqués dans les réponses, et les variables nécessaires au démarrage (`SUDO`, `DATABASE_URL`, `PAIRING_METHOD`, etc.) déclenchent un redémarrage après modification ou suppression. Les variables d’environnement dangereuses comme `NODE_OPTIONS` ne peuvent pas être modifiées par ces commandes. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
 
 À chaque démarrage où WhatsApp se connecte, le propriétaire reçoit en privé le message d’accueil ainsi que l’état de `AUTO_STATUS` et `AUTO_UPDATE`. En cas d’échec d’envoi temporaire, le bot réessaie jusqu’à trois fois et consigne les erreurs dans le terminal. Lorsque `AUTO_STATUS` est activé, les nouveaux statuts textuels, images et vidéos sont transmis au propriétaire, au maximum une fois par identifiant de message récent. Les valeurs de `.env` sont chargées au démarrage et synchronisées avec le stockage du bot.
 

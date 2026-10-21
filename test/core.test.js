@@ -8,8 +8,11 @@ import { createMessageHandler } from '../core/handler.js';
 import pingPlugin from '../plugins/ping.js';
 import listPlugin from '../plugins/list.js';
 import setvarPlugin from '../plugins/setvar.js';
+import getvarPlugin from '../plugins/getvar.js';
+import allvarPlugin from '../plugins/allvar.js';
+import delvarPlugin from '../plugins/delvar.js';
 import { createAutoUpdater } from '../core/auto-update.js';
-import { writeEnvVariable } from '../core/env.js';
+import { readEnvVariables, writeEnvVariable } from '../core/env.js';
 import { initializeFeatureSettings } from '../core/feature-settings.js';
 
 const testStoragePath = path.resolve('data/test-store.json');
@@ -53,8 +56,8 @@ test('charge les options depuis .env et migre les anciennes valeurs du stockage'
     assert.equal(values.get('feature:auto_update'), false);
     assert.equal(process.env.AUTO_STATUS, 'on');
     assert.equal(process.env.AUTO_UPDATE, 'off');
-    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_STATUS=on/);
-    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_UPDATE=off/);
+    assert.equal((await readEnvVariables(envFilePath)).AUTO_STATUS, 'on');
+    assert.equal((await readEnvVariables(envFilePath)).AUTO_UPDATE, 'off');
   } finally {
     if (previousAutoStatus === undefined) delete process.env.AUTO_STATUS;
     else process.env.AUTO_STATUS = previousAutoStatus;
@@ -67,7 +70,7 @@ test('charge les options depuis .env et migre les anciennes valeurs du stockage'
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'update', 'setvar', 'restart', 'shutdown', 'kick', 'add', 'promote', 'sticker']) {
+  for (const command of ['ping', 'list', 'menu', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'restart', 'shutdown', 'kick', 'add', 'promote', 'sticker']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
 });
@@ -107,6 +110,8 @@ test('setvar active ou désactive les options et rejette les valeurs invalides',
   const envFilePath = path.resolve('data/test-bot.env');
   const previousAutoStatus = process.env.AUTO_STATUS;
   const previousAutoUpdate = process.env.AUTO_UPDATE;
+  const previousWelcomeText = process.env.WELCOME_TEXT;
+  const previousApiToken = process.env.API_TOKEN;
   const storage = {
     async set(key, value) { values.set(key, value); },
   };
@@ -130,17 +135,39 @@ test('setvar active ou désactive les options et rejette les valeurs invalides',
     assert.equal(values.get('feature:auto_update'), false);
     assert.match(replies[0], /activé.*\.env/);
     assert.match(replies[1], /désactivée.*\.env/);
-    assert.match(replies[2], /Utilisation/);
+    assert.match(replies[2], /accepte uniquement on ou off/);
     assert.equal(process.env.AUTO_STATUS, 'on');
     assert.equal(process.env.AUTO_UPDATE, 'off');
-    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_STATUS=on/);
-    assert.match(await fs.readFile(envFilePath, 'utf8'), /AUTO_UPDATE=off/);
-    assert.match(await fs.readFile(envFilePath, 'utf8'), /BOT_NAME=RORISU/);
+    assert.equal((await readEnvVariables(envFilePath)).AUTO_STATUS, 'on');
+    assert.equal((await readEnvVariables(envFilePath)).AUTO_UPDATE, 'off');
+    assert.equal((await readEnvVariables(envFilePath)).BOT_NAME, 'RORISU');
+
+    await setvarPlugin.execute({ ...context, args: ['WELCOME_TEXT', '=', 'hello world #welcome'] });
+    assert.equal(process.env.WELCOME_TEXT, 'hello world #welcome');
+    await getvarPlugin.execute({ ...context, args: ['WELCOME_TEXT'] });
+    assert.equal(replies[4], 'WELCOME_TEXT = hello world #welcome');
+
+    await fs.appendFile(envFilePath, 'API_TOKEN=keep-this-private\n');
+    await getvarPlugin.execute({ ...context, args: ['API_TOKEN'] });
+    assert.equal(replies[5], 'API_TOKEN = [masqué]');
+    await allvarPlugin.execute(context);
+    assert.match(replies[6], /WELCOME_TEXT = hello world #welcome/);
+    assert.match(replies[6], /API_TOKEN = \[masqué\]/);
+
+    await delvarPlugin.execute({ ...context, args: ['WELCOME_TEXT'] });
+    assert.match(replies[7], /WELCOME_TEXT a été supprimée/);
+    assert.equal((await readEnvVariables(envFilePath)).WELCOME_TEXT, undefined);
+    await delvarPlugin.execute({ ...context, args: ['AUTO_STATUS'] });
+    assert.match(replies[8], /option gérée/);
   } finally {
     if (previousAutoStatus === undefined) delete process.env.AUTO_STATUS;
     else process.env.AUTO_STATUS = previousAutoStatus;
     if (previousAutoUpdate === undefined) delete process.env.AUTO_UPDATE;
     else process.env.AUTO_UPDATE = previousAutoUpdate;
+    if (previousWelcomeText === undefined) delete process.env.WELCOME_TEXT;
+    else process.env.WELCOME_TEXT = previousWelcomeText;
+    if (previousApiToken === undefined) delete process.env.API_TOKEN;
+    else process.env.API_TOKEN = previousApiToken;
     await fs.rm(envFilePath, { force: true });
   }
 });
@@ -153,7 +180,7 @@ test('écrit les variables .env sans conserver les doublons', async () => {
 
     const contents = await fs.readFile(envFilePath, 'utf8');
     assert.equal((contents.match(/^AUTO_STATUS=/gm) || []).length, 1);
-    assert.match(contents, /^AUTO_STATUS=off$/m);
+    assert.equal((await readEnvVariables(envFilePath)).AUTO_STATUS, 'off');
     assert.match(contents, /^# conservé$/m);
   } finally {
     await fs.rm(envFilePath, { force: true });
