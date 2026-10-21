@@ -26,6 +26,7 @@ import reactPlugin from '../plugins/react.js';
 import deletePlugin from '../plugins/delete.js';
 import alivePlugin from '../plugins/alive.js';
 import { createAutoUpdater } from '../core/auto-update.js';
+import { checkForUpdates } from '../core/git-updates.js';
 import { readEnvVariables, writeEnvVariable } from '../core/env.js';
 import { initializeFeatureSettings } from '../core/feature-settings.js';
 import { restartRequiredVariables } from '../core/env-command.js';
@@ -811,6 +812,7 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
       if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return { stdout: 'origin/main\n' };
       if (args[1] === 'HEAD') return { stdout: 'old\n' };
       if (args[1] === 'origin/main') return { stdout: 'new\n' };
+      if (args[0] === 'log') return { stdout: 'abc123\tCorrection importante\n' };
       return { stdout: '' };
     },
   });
@@ -825,7 +827,8 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
     ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
     ['rev-parse', 'HEAD'],
     ['rev-parse', 'origin/main'],
-    ['merge', '--ff-only', 'origin/main'],
+    ['log', '--format=%h%x09%s', 'HEAD..origin/main'],
+    ['merge', '--ff-only', '@{upstream}'],
   ]);
   assert.equal(restarted, true);
   updater.stop();
@@ -854,6 +857,24 @@ test('le vérificateur automatique contrôle GitHub dès la connexion', async ()
   updater.stop();
 
   assert.deepEqual(calls[0], ['fetch']);
+});
+
+test('le vérificateur Git liste les commits disponibles sans les installer', async () => {
+  const calls = [];
+  const status = await checkForUpdates(async (args) => {
+    calls.push(args);
+    if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return { stdout: 'origin/main\n' };
+    if (args[0] === 'rev-parse' && args[1] === 'HEAD') return { stdout: 'local\n' };
+    if (args[0] === 'rev-parse') return { stdout: 'remote\n' };
+    if (args[0] === 'log') return { stdout: 'def456\tCorrection\nabc123\tNouvelle commande\n' };
+    return { stdout: '' };
+  });
+
+  assert.deepEqual(status, {
+    upstream: 'origin/main',
+    commits: ['def456\tCorrection', 'abc123\tNouvelle commande'],
+  });
+  assert.equal(calls.some(([command]) => command === 'merge'), false);
 });
 
 test('le gestionnaire traite les commandes du compte lié et des autres comptes', async () => {

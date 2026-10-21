@@ -19,7 +19,8 @@ export default {
       `│ ${prefix}filter  ${prefix}greet  ${prefix}kick`,
       `│ ${prefix}promote  ${prefix}mute  ${prefix}invite`,
       `├─ *Propriétaire*`,
-      `│ ${prefix}setvar  ${prefix}update  ${prefix}restart  ${prefix}shutdown`,
+      `│ ${prefix}setvar  ${prefix}update [now]`,
+      `│ ${prefix}restart  ${prefix}shutdown`,
       '╰────────────────────',
       `Astuce : ${prefix}rori configure les commandes accessibles aux membres.`,
     ];
