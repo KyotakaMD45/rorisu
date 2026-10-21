@@ -24,15 +24,16 @@ export function findMessageMedia(message) {
 }
 
 export function isViewOnceMessage(message) {
-  const root = message?.message || message || {};
-  return Boolean(
-    root.viewOnceMessage
-    || root.viewOnceMessageV2
-    || root.viewOnceMessageV2Extension
-    || root.ephemeralMessage?.message?.viewOnceMessage
-    || root.ephemeralMessage?.message?.viewOnceMessageV2
-    || root.ephemeralMessage?.message?.viewOnceMessageV2Extension,
-  );
+  let content = message?.message || message;
+  for (let depth = 0; content && depth < 5; depth += 1) {
+    if (content.viewOnceMessage || content.viewOnceMessageV2 || content.viewOnceMessageV2Extension) {
+      return true;
+    }
+    content = content.ephemeralMessage?.message
+      || content.documentWithCaptionMessage?.message
+      || content.editedMessage?.message;
+  }
+  return false;
 }
 
 export function messageCacheKey(key) {
@@ -70,11 +71,11 @@ function getMediaSize(media) {
   return Number.isFinite(size) ? size : 0;
 }
 
-async function getMediaBuffer(message, media, socket, logger) {
+async function getMediaBuffer(message, media, socket, logger, downloadMedia = downloadMediaMessage) {
   if (getMediaSize(media.content) > maxMediaBytes) {
     throw new Error('Le média dépasse la limite de récupération de 20 Mo.');
   }
-  const buffer = await downloadMediaMessage(message, 'buffer', {}, {
+  const buffer = await downloadMedia(message, 'buffer', {}, {
     logger,
     reuploadRequest: (key) => socket.updateMediaMessage(key),
   });
@@ -97,6 +98,7 @@ export async function sendRecoveredMessage({
   logger,
   quoted,
   notice,
+  downloadMedia,
 }) {
   const media = findMessageMedia(message);
   if (!media) {
@@ -113,7 +115,7 @@ export async function sendRecoveredMessage({
     return;
   }
 
-  const buffer = await getMediaBuffer(message, media, socket, logger);
+  const buffer = await getMediaBuffer(message, media, socket, logger, downloadMedia);
   const label = notice || getContextLabel(message);
   const caption = [label, media.content.caption].filter(Boolean).join('\n');
   if (['audio', 'sticker'].includes(media.mediaType) && caption) {
@@ -138,12 +140,13 @@ export async function forwardViewOnce({
   destination,
   message,
   logger,
+  downloadMedia,
 }) {
   const media = findMessageMedia(message);
   if (!media || !['image', 'video', 'audio'].includes(media.mediaType)) {
     throw new Error('Ce message éphémère ne contient pas un média pris en charge.');
   }
-  const buffer = await getMediaBuffer(message, media, socket, logger);
+  const buffer = await getMediaBuffer(message, media, socket, logger, downloadMedia);
   const sender = message.key.participant || message.key.remoteJid;
   const caption = `Média à vue unique reçu de ${sender}${media.content.caption ? `\n${media.content.caption}` : ''}`;
   if (media.mediaType === 'audio') {

@@ -80,6 +80,8 @@ Pour l’anti-suppression, le propriétaire peut utiliser `.delete p` pour recev
 
 `.vv` retransmet dans la discussion le média à vue unique auquel on répond. `.antivv on` transfère automatiquement les prochains médias à vue unique au propriétaire; `.antivv on g` les renvoie dans la discussion d’origine; `.antivv on <JID>` les envoie vers un JID ou numéro choisi. `.antivv off` désactive la fonction et `.antivv info` affiche son état. Utilise ces fonctions en respectant le consentement des personnes qui ont envoyé les médias.
 
+Les détails des sessions Signal cryptographiques sont masqués dans le terminal; ne partagez jamais les journaux bruts ou les fichiers d’authentification WhatsApp.
+
 Sur VPS, gérez le processus avec `pm2 status`, `pm2 restart rorisu-baileys-bot` ou `pm2 stop rorisu-baileys-bot`. Les mises à jour `.update now` et `AUTO_UPDATE` installent également les dépendances de production avant de redémarrer.
 
 ## API et Docker

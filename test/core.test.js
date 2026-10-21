@@ -31,6 +31,7 @@ import { readEnvVariables, writeEnvVariable } from '../core/env.js';
 import { initializeFeatureSettings } from '../core/feature-settings.js';
 import { restartRequiredVariables } from '../core/env-command.js';
 import { buildOwnerWelcome } from '../core/connection.js';
+import { suppressSensitiveSessionLogs } from '../core/safe-console.js';
 
 const testStoragePath = path.resolve('data/test-store.json');
 
@@ -210,6 +211,25 @@ test('le message de connexion privé inclut la session, le numéro et l’état 
     antiDelete: 'désactivée',
     antiVv: 'activée',
     gemini: 'activé',
+  });
+
+  test('les journaux Signal masquent le contenu des sessions cryptographiques', () => {
+    const calls = [];
+    const consoleObject = {
+      info(...args) { calls.push(['info', ...args]); },
+      warn(...args) { calls.push(['warn', ...args]); },
+    };
+
+    suppressSensitiveSessionLogs(consoleObject);
+    consoleObject.info('Closing session:', { currentRatchet: { privateKey: 'secret' } });
+    consoleObject.warn('Opening session:', { currentRatchet: { privateKey: 'secret' } });
+    consoleObject.warn('USync fetch yielded no results');
+
+    assert.deepEqual(calls, [
+      ['info', '[Signal] Mise à jour de session (détails masqués).'],
+      ['warn', '[Signal] Mise à jour de session (détails masqués).'],
+      ['warn', 'USync fetch yielded no results'],
+    ]);
   });
 
   assert.match(welcome, /👋 Bienvenue et merci d’avoir utilisé \*teste\*/);

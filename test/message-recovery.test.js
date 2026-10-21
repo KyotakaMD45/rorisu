@@ -3,6 +3,7 @@ import test from 'node:test';
 import { WAMessageStubType } from '@whiskeysockets/baileys';
 import { createMessageHandler } from '../core/handler.js';
 import {
+  forwardViewOnce,
   isViewOnceMessage,
   shouldRecoverDeletedMessage,
 } from '../core/message-recovery.js';
@@ -39,27 +40,27 @@ test('delete configure la récupération des messages supprimés et accepte les 
     destination: 'p',
     scope: 'no-gm',
   });
-
-  test('anti-suppression accepte un JID personnalisé', async () => {
-    const values = new Map();
-    await deletePlugin.execute({
-      args: ['123456789@g.us'],
-      text: '.delete 123456789@g.us',
-      config: { prefixes: ['.'] },
-      isSudo: true,
-      storage: {
-        async get(key) { return values.get(key) ?? null; },
-        async set(key, value) { values.set(key, value); },
-      },
-      async sendReply() {},
-    });
-
-    assert.deepEqual(values.get('feature:anti_delete'), {
-      destination: '123456789@g.us',
-      scope: null,
-    });
-  });
   assert.match(replies[0], /propriétaire en privé/);
+});
+
+test('anti-suppression accepte un JID personnalisé', async () => {
+  const values = new Map();
+  await deletePlugin.execute({
+    args: ['123456789@g.us'],
+    text: '.delete 123456789@g.us',
+    config: { prefixes: ['.'] },
+    isSudo: true,
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+    async sendReply() {},
+  });
+
+  assert.deepEqual(values.get('feature:anti_delete'), {
+    destination: '123456789@g.us',
+    scope: null,
+  });
 });
 
 test('la configuration anti-suppression est réservée au propriétaire et peut être désactivée', async () => {
@@ -177,6 +178,52 @@ test('anti-VV envoie le média vers le JID configuré', async () => {
   assert.equal(sent[0].chatId, '123456789@g.us');
 });
 
+test('anti-VV télécharge et transfère le média éphémère reçu', async () => {
+  const sent = [];
+  const message = {
+    key: {
+      remoteJid: '987654321@s.whatsapp.net',
+      participant: '987654321@s.whatsapp.net',
+      id: 'view-once-image',
+    },
+    message: {
+      ephemeralMessage: {
+        message: {
+          viewOnceMessageV2: {
+            message: {
+              imageMessage: {
+                mimetype: 'image/jpeg',
+                caption: 'photo',
+                fileLength: 5,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  await forwardViewOnce({
+    socket: {
+      async sendMessage(chatId, payload) { sent.push({ chatId, payload }); },
+      async updateMediaMessage() {},
+    },
+    destination: '33612345678@s.whatsapp.net',
+    message,
+    logger: {},
+    async downloadMedia(source, type) {
+      assert.equal(source, message);
+      assert.equal(type, 'buffer');
+      return Buffer.from('photo');
+    },
+  });
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].chatId, '33612345678@s.whatsapp.net');
+  assert.equal(sent[0].payload.image.toString(), 'photo');
+  assert.match(sent[0].payload.caption, /Média à vue unique reçu de/);
+});
+
 test('vv exige une réponse à un média à vue unique', async () => {
   const replies = [];
   await vvPlugin.execute({
@@ -184,6 +231,53 @@ test('vv exige une réponse à un média à vue unique', async () => {
     async sendReply(text) { replies.push(text); },
   });
   assert.match(replies[0], /vue unique/);
+});
+
+test('vv extrait et renvoie le média à vue unique cité', async () => {
+  const sent = [];
+  const quotedMessage = {
+    key: { id: 'view-once-quoted', remoteJid: 'chat-1@s.whatsapp.net' },
+    message: {
+      ephemeralMessage: {
+        message: {
+          viewOnceMessageV2: {
+            message: {
+              imageMessage: {
+                mimetype: 'image/jpeg',
+                caption: 'photo privée',
+                fileLength: 4,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  await vvPlugin.execute({
+    socket: {
+      async sendMessage(chatId, payload, options) {
+        sent.push({ chatId, payload, options });
+      },
+      async updateMediaMessage() {},
+    },
+    message: { key: { id: 'vv-command' } },
+    quotedMessage,
+    chatId: 'chat-1@s.whatsapp.net',
+    logger: { error(error) { throw error; } },
+    async downloadMedia(message, type) {
+      assert.equal(message, quotedMessage);
+      assert.equal(type, 'buffer');
+      return Buffer.from('image');
+    },
+    async sendReply(text) { sent.push({ text }); },
+  });
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].chatId, 'chat-1@s.whatsapp.net');
+  assert.equal(sent[0].payload.image.toString(), 'image');
+  assert.equal(sent[0].payload.mimetype, 'image/jpeg');
+  assert.match(sent[0].payload.caption, /Média à vue unique récupéré/);
 });
 
 test('la détection de vue unique et les filtres de destination fonctionnent', () => {

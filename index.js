@@ -6,8 +6,10 @@ import { createMessageHandler } from './core/handler.js';
 import { loadPlugins } from './core/loader.js';
 import { initializeFeatureSettings } from './core/feature-settings.js';
 import { createApiServer } from './core/api.js';
+import { suppressSensitiveSessionLogs } from './core/safe-console.js';
 
 // Point d'entrée : initialise le stockage, charge les commandes puis démarre Baileys.
+suppressSensitiveSessionLogs();
 async function start() {
   if (!config.sudoNumbers.length
     && (config.apiMode !== 'only' || config.pairingMethod === 'code')) {
