@@ -23,7 +23,7 @@ fi
 
 printf 'Installation de Git et Node.js...\n'
 pkg update -y
-pkg install -y git nodejs-lts
+pkg install -y git nodejs-lts yt-dlp
 command -v node >/dev/null 2>&1 || fail "Node.js n’a pas pu être installé."
 node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)' \
   || fail "Node.js 20 ou supérieur est requis."

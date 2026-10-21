@@ -12,7 +12,7 @@ export default {
     const prefix = config.prefixes[0] || '.';
     const categories = [
       ['🔄 CONVERSION', ['sticker']],
-      ['✨ IA & MÉDIAS', ['gemini', 'image', 'delete', 'vv']],
+      ['✨ IA & MÉDIAS', ['download', 'gemini', 'image', 'delete', 'vv']],
       ['👥 GROUPE', ['antilink', 'antiword', 'filter', 'ginfo', 'greet', 'group', 'tag', 'warn']],
       ['🧰 OUTILS', ['afk', 'poll', 'react', 'rori']],
       ['🤖 BOT & COMPTE', ['alive', 'list', 'ping']],

@@ -67,6 +67,7 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | --- | --- |
 | `.list`, `.alive`, `.ping` | Aide et état du bot. |
 | `.gemini`, `.ai`, `.image`, `.imagine` | Assistant multimodal et génération d’images. |
+| `.download`, `.yt`, `.youtube`, `.tiktok`, `.insta`, `.fb` | Télécharge des médias publics pris en charge (yt-dlp requis; limite 20 Mo). |
 | `.sticker`, `.poll`, `.afk`, `.react`, `.dlt` | Outils de discussion; `.dlt` supprime le message cité avec les permissions nécessaires. |
 | `.delete p/g/JID/off`, `.antidelete`, `.vv`, `.antivv off` | Récupération anti-suppression des messages ordinaires et information sur la protection des médias à vue unique. Limite média anti-suppression : 20 Mo. |
 | `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
@@ -76,6 +77,8 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie les mises à jour ou les installe, puis redémarre (propriétaire uniquement). |
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
+
+Le téléchargeur utilise `yt-dlp` installé localement. Les scripts d’installation VPS Debian/Ubuntu, Termux et Windows l’installent automatiquement. Sur les autres plateformes, installez yt-dlp depuis sa documentation officielle. Utilisez uniquement des médias publics que vous êtes autorisé à télécharger; aucune session, cookie ou connexion à un compte n’est utilisé. Les playlists ne sont pas téléchargées et la limite est de 20 Mo.
 
 Le propriétaire peut gérer les autres numéros autorisés sans redémarrer le bot : `.setsudo add 22501234567`, `.setsudo remove 22501234567` et `.setsudo list`. Les changements sont enregistrés dans `SUDO` de `config.env` et appliqués immédiatement.
 

@@ -46,6 +46,48 @@ if ($nodeVersion -notmatch '^v(?<major>\d+)\.' -or [int]$Matches.major -lt 20) {
   Stop-Installation "Node.js 20 ou supérieur est requis ; version détectée : $nodeVersion."
 }
 
+$ytDlpCommand = Get-Command yt-dlp -ErrorAction SilentlyContinue
+if (-not $ytDlpCommand) {
+  $wingetCommand = Get-Command winget -ErrorAction SilentlyContinue
+  if (-not $wingetCommand) {
+    Stop-Installation 'yt-dlp est nécessaire pour les commandes de téléchargement. Installez-le depuis https://github.com/yt-dlp/yt-dlp puis relancez ce script.'
+  }
+
+  Write-Host 'Installation de yt-dlp...'
+  & $wingetCommand.Source install --id yt-dlp.yt-dlp --exact --accept-source-agreements --accept-package-agreements
+  if ($LASTEXITCODE -ne 0) {
+    Stop-Installation "l'installation de yt-dlp a échoué (code $LASTEXITCODE)."
+  }
+
+  $ytDlpDirectories = @(
+    (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links')
+  )
+  $wingetPackages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+  if (Test-Path -LiteralPath $wingetPackages) {
+    $ytDlpDirectories += Get-ChildItem -Path (Join-Path $wingetPackages 'yt-dlp.yt-dlp_*') -Directory -ErrorAction SilentlyContinue |
+      ForEach-Object { $_.FullName }
+  }
+  foreach ($directory in $ytDlpDirectories) {
+    if ((Test-Path -LiteralPath (Join-Path $directory 'yt-dlp.exe')) -and $env:Path -notlike "*$directory*") {
+      $env:Path = "$directory;$env:Path"
+    }
+    if (Test-Path -LiteralPath (Join-Path $directory 'yt-dlp.exe')) {
+      $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+      if ($userPath -split ';' -notcontains $directory) {
+        [Environment]::SetEnvironmentVariable(
+          'Path',
+          (@($directory, $userPath) -join ';').TrimEnd(';'),
+          'User'
+        )
+      }
+    }
+  }
+  $ytDlpCommand = Get-Command yt-dlp -ErrorAction SilentlyContinue
+  if (-not $ytDlpCommand) {
+    Stop-Installation 'yt-dlp a été installé. Fermez puis rouvrez PowerShell et relancez cette commande.'
+  }
+}
+
 $temporaryDirectory = Join-Path $env:TEMP ("rorisu-install-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temporaryDirectory | Out-Null
 

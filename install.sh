@@ -67,7 +67,7 @@ fi
 
 printf 'Installation des outils requis...\n'
 run_root apt-get update
-run_root apt-get install -y ca-certificates curl git
+run_root apt-get install -y ca-certificates curl git yt-dlp
 
 node_is_supported() {
   command -v node >/dev/null 2>&1 && node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)'
