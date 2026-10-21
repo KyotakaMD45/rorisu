@@ -102,7 +102,7 @@ test('charge les options depuis la configuration et migre les anciennes valeurs 
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'antidelete', 'antivv', 'vv', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'gemini', 'ai', 'image', 'imagine']) {
+  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'antidelete', 'antivv', 'vv', 'update', 'setsudo', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'gemini', 'ai', 'image', 'imagine']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
   assert.equal(plugins.get('stop').name, 'filter');
@@ -193,6 +193,7 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
   assert.match(reply, /!antiword/);
   assert.match(reply, /!rori/);
   assert.match(reply, /!setvar/);
+  assert.match(reply, /!setsudo/);
   assert.match(reply, /!update/);
   assert.match(reply, /!shutdown/);
   assert.doesNotMatch(reply, /AUTO_STATUS|SEND_READ|AUTO_UPDATE|—/);

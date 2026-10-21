@@ -16,7 +16,7 @@ export default {
       ['👥 GROUPE', ['antilink', 'antiword', 'filter', 'ginfo', 'greet', 'group', 'tag', 'warn']],
       ['🧰 OUTILS', ['afk', 'poll', 'react', 'rori']],
       ['🤖 BOT & COMPTE', ['alive', 'list', 'ping']],
-      ['🔐 PROPRIÉTAIRE', ['allvar', 'antivv', 'delvar', 'getvar', 'restart', 'setvar', 'shutdown', 'update']],
+      ['🔐 PROPRIÉTAIRE', ['allvar', 'antivv', 'delvar', 'getvar', 'restart', 'setsudo', 'setvar', 'shutdown', 'update']],
     ];
     const available = plugins
       ? new Set([...plugins.values()].map((plugin) => plugin.name.toLowerCase()))

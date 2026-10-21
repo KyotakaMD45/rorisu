@@ -72,9 +72,12 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
+| `.setsudo [list|add <numéro>|remove <numéro>]` | Gère les propriétaires du bot; le dernier propriétaire ne peut pas être retiré. |
 | `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie les mises à jour ou les installe, puis redémarre (propriétaire uniquement). |
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
+
+Le propriétaire peut gérer les autres numéros autorisés sans redémarrer le bot : `.setsudo add 22501234567`, `.setsudo remove 22501234567` et `.setsudo list`. Les changements sont enregistrés dans `SUDO` de `config.env` et appliqués immédiatement.
 
 Pour l’anti-suppression, le propriétaire peut utiliser `.delete p` pour recevoir les messages supprimés en privé, `.delete g` pour les renvoyer dans la discussion d’origine, ou `.delete off` pour désactiver la fonction. Les filtres facultatifs sont `pm`, `gm`, `no-pm` et `no-gm`; un numéro international ou un JID WhatsApp peut aussi être fourni à la place de `p` ou `g`. La récupération utilise un cache mémoire des 300 derniers messages, effacé au redémarrage. `.delete` sans option ou `.dlt` sur un message cité conserve la suppression manuelle.
 
