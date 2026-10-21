@@ -9,7 +9,7 @@ export default {
     const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
     const uptimeMinutes = Math.floor(process.uptime() / 60);
     await sendReply(
-      `${config.botName} est en ligne.\nTemps de fonctionnement : ${uptimeMinutes} min.\nAUTO_STATUS : ${autoStatus}\nAUTO_STATUS_VIEW : ${autoStatusView}\nSEND_READ : ${sendRead}\nAUTO_UPDATE : ${autoUpdate}`,
+      `${config.botName} est en ligne.\nTemps de fonctionnement : ${uptimeMinutes} min.\nAUTO_STATUS : ${autoStatus}\nAUTO_STATUS_VIEW : ${autoStatusView}\nSEND_READ : ${sendRead}\nAUTO_UPDATE : ${autoUpdate}\nGEMINI : ${config.gemini?.apiKey ? 'activé' : 'désactivé (clé API manquante)'}`,
     );
   },
 };

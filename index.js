@@ -11,7 +11,7 @@ import { createApiServer } from './core/api.js';
 async function start() {
   if (!config.sudoNumbers.length
     && (config.apiMode !== 'only' || config.pairingMethod === 'code')) {
-    throw new Error('Configurez SUDO avec le numéro WhatsApp du propriétaire dans le fichier .env.');
+    throw new Error('Configurez SUDO avec le numéro WhatsApp du propriétaire dans le fichier config.env.');
   }
 
   const logger = pino({ level: process.env.LOG_LEVEL || 'info' });

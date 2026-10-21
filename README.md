@@ -146,6 +146,8 @@ Avec le préfixe `.` par défaut :
 | `.setvar AUTO_STATUS_VIEW = on` / `off` | Marque automatiquement comme lus les statuts reçus. |
 | `.setvar SEND_READ = on` / `off` | Envoie automatiquement les accusés de lecture des messages entrants. |
 | `.setvar AUTO_UPDATE = on` / `off` | Active ou désactive la vérification immédiate puis périodique des mises à jour GitHub (toutes les cinq minutes). |
+| `.gemini question` / `.ai question` | Pose une question à Gemini. Une image, un audio, une vidéo MP4 ou un PDF envoyé/cité peut être analysé. |
+| `.gemini reset` | Efface le contexte Gemini de la discussion et de l’utilisateur. |
 | `.shutdown` | Arrête le processus (propriétaire uniquement). |
 
 Les commandes de modération sont réservées aux administrateurs du groupe et nécessitent que le bot soit également administrateur. Une mention ou un numéro international peut désigner la cible. Les commandes `update`, `setvar`, `getvar`, `allvar`, `delvar`, `restart` et `shutdown` vérifient le numéro `SUDO`. Les commandes de variables écrivent directement dans `config.env`; les secrets sont masqués dans les réponses, et les variables nécessaires au démarrage (`SUDO`, `DATABASE_URL`, `PAIRING_METHOD`, etc.) déclenchent un redémarrage après modification ou suppression. Les variables d’environnement dangereuses comme `NODE_OPTIONS` ne peuvent pas être modifiées par ces commandes. `.update` nécessite un dépôt Git avec une branche distante configurée ; elle refuse les mises à jour qui exigeraient une fusion. La mise à jour automatique est désactivée par défaut et n’installe que les mises à jour en avance rapide depuis la branche distante configurée.
@@ -177,8 +179,18 @@ Les commandes envoyées depuis le compte WhatsApp lié au bot sont également tr
 | `DATABASE_URL` | URL PostgreSQL ; vide pour le stockage JSON local. | vide |
 | `LANGUAGE` | Langue configurée. | `fr` |
 | `TZ` | Fuseau horaire du processus. | `Europe/Paris` |
+| `GEMINI_API_KEY` | Clé API Google AI Studio ; nécessaire à la commande Gemini. | vide |
+| `GEMINI_MODEL` | Nom du modèle Gemini utilisé pour les questions et médias. | `gemini-3.8-flash` |
+| `GEMINI_SYSTEM_PROMPT` | Consigne système envoyée avec chaque requête. | assistant RORISU multilingue |
+| `GEMINI_TEMPERATURE` | Créativité de la réponse, de `0` à `2`. | `0.7` |
+| `GEMINI_MAX_OUTPUT_TOKENS` | Limite de génération. | `1024` |
+| `GEMINI_CONTEXT_TURNS` | Nombre de tours précédents conservés par discussion ; `0` désactive la mémoire. | `4` |
+| `GEMINI_TIMEOUT_MS` | Délai maximal d’une requête, de `1000` à `120000` ms. | `45000` |
+| `GEMINI_MAX_MEDIA_BYTES` | Taille maximale d’un média envoyé à Gemini, de 1 Ko à 20 Mo. | `10485760` |
 
 PostgreSQL stocke les valeurs dans `bot_store`. En mode fichier, les données et compteurs sont conservés dans `data/store.json`. Les dépendances de conversion WebP embarquent ffmpeg ; aucun binaire ffmpeg externe n’est requis.
+
+Pour activer Gemini, créez une clé sur [Google AI Studio](https://aistudio.google.com/apikey), renseignez `GEMINI_API_KEY` dans `config.env`, puis redémarrez le bot. La clé reste locale et ne doit pas être publiée. Les autres paramètres Gemini peuvent être modifiés via `.setvar`; leur changement redémarre le bot. Le contexte est conservé dans le stockage RORISU par discussion et numéro d’utilisateur ; `.gemini reset` le supprime. Gemini accepte les médias et modèles compatibles avec l’API Google, dont les images, l’audio, les vidéos MP4 et les PDF ; la génération d’images ou d’audio dépend du modèle sélectionné.
 
 ## Développement
 

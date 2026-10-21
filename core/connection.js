@@ -109,6 +109,7 @@ Fonctionnalités :
 - AUTO_STATUS_VIEW (lecture automatique des statuts) : ${autoStatusView}
 - SEND_READ (accusés de lecture) : ${sendRead}
 - AUTO_UPDATE (mises à jour automatiques depuis GitHub) : ${autoUpdate}
+- GEMINI (assistant IA) : ${config.gemini.apiKey ? 'activé' : 'désactivé — clé GEMINI_API_KEY manquante'}
 
 Activation ou désactivation :
 .setvar AUTO_STATUS = on/off

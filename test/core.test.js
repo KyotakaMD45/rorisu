@@ -99,7 +99,7 @@ test('charge les options depuis la configuration et migre les anciennes valeurs 
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker']) {
+  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'gemini', 'ai']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
   assert.equal(plugins.get('stop').name, 'filter');
@@ -138,6 +138,14 @@ test('les paramètres du serveur API et des sessions nécessitent un redémarrag
     'API_PUBLIC_URL',
     'API_WEBHOOK_URL',
     'EXTERNAL_PLUGINS_DIRECTORY',
+    'GEMINI_API_KEY',
+    'GEMINI_CONTEXT_TURNS',
+    'GEMINI_MAX_MEDIA_BYTES',
+    'GEMINI_MAX_OUTPUT_TOKENS',
+    'GEMINI_MODEL',
+    'GEMINI_SYSTEM_PROMPT',
+    'GEMINI_TEMPERATURE',
+    'GEMINI_TIMEOUT_MS',
     'PORT',
     'SESSION_ID',
   ]) {
@@ -171,6 +179,7 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
   assert.match(reply, /Préfixe\(s\) : ! \/ \./);
   assert.match(reply, /!ping/);
   assert.match(reply, /!sticker/);
+  assert.match(reply, /!gemini \/ !ai/);
   assert.match(reply, /!antiword/);
   assert.match(reply, /!setgreet \/ !setgoodbye/);
   assert.match(reply, /!setvar/);
@@ -182,7 +191,7 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
 test('alive affiche l’état des options persistantes', async () => {
   let reply;
   await alivePlugin.execute({
-    config: { botName: 'RORISU' },
+    config: { botName: 'RORISU', gemini: { apiKey: '' } },
     storage: { async get(key) { return key === 'feature:auto_status'; } },
     async sendReply(text) { reply = text; },
   });
@@ -191,6 +200,7 @@ test('alive affiche l’état des options persistantes', async () => {
   assert.match(reply, /AUTO_STATUS_VIEW : désactivée/);
   assert.match(reply, /SEND_READ : désactivés/);
   assert.match(reply, /AUTO_UPDATE : désactivée/);
+  assert.match(reply, /GEMINI : désactivé/);
 });
 
 test('react réagit uniquement à un message cité', async () => {
@@ -703,18 +713,22 @@ test('setvar active ou désactive les options et rejette les valeurs invalides',
     await getvarPlugin.execute({ ...context, args: ['WELCOME_TEXT'] });
     assert.equal(replies[4], 'WELCOME_TEXT = hello world #welcome');
 
-    await fs.appendFile(envFilePath, 'API_TOKEN=keep-this-private\n');
+    await fs.appendFile(envFilePath, 'API_TOKEN=keep-this-private\nGEMINI_API_KEY=gemini-secret\n');
     await getvarPlugin.execute({ ...context, args: ['API_TOKEN'] });
     assert.equal(replies[5], 'API_TOKEN = [masqué]');
+    await getvarPlugin.execute({ ...context, args: ['GEMINI_API_KEY'] });
+    assert.equal(replies[6], 'GEMINI_API_KEY = [masqué]');
     await allvarPlugin.execute(context);
-    assert.match(replies[6], /WELCOME_TEXT = hello world #welcome/);
-    assert.match(replies[6], /API_TOKEN = \[masqué\]/);
+    assert.match(replies[7], /WELCOME_TEXT = hello world #welcome/);
+    assert.match(replies[7], /API_TOKEN = \[masqué\]/);
+    assert.match(replies[7], /GEMINI_API_KEY = \[masqué\]/);
+    assert.doesNotMatch(replies[7], /gemini-secret/);
 
     await delvarPlugin.execute({ ...context, args: ['WELCOME_TEXT'] });
-    assert.match(replies[7], /WELCOME_TEXT a été supprimée/);
+    assert.match(replies[8], /WELCOME_TEXT a été supprimée/);
     assert.equal((await readEnvVariables(envFilePath)).WELCOME_TEXT, undefined);
     await delvarPlugin.execute({ ...context, args: ['AUTO_STATUS'] });
-    assert.match(replies[8], /option gérée/);
+    assert.match(replies[9], /option gérée/);
   } finally {
     if (previousAutoStatus === undefined) delete process.env.AUTO_STATUS;
     else process.env.AUTO_STATUS = previousAutoStatus;
