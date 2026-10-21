@@ -92,13 +92,27 @@ export async function createConnection({
       const autoStatusView = await storage.get('feature:auto_status_view') === true ? 'activée' : 'désactivée';
       const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
       const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
-      const welcome = `✅ ${config.botName} est connecté à WhatsApp.
+      const welcome = `🔥 Bienvenue dans la communauté ${config.botName} !
 
-État des fonctions :
-- AUTO_STATUS : ${autoStatus}
-- AUTO_STATUS_VIEW : ${autoStatusView}
-- SEND_READ : ${sendRead}
-- AUTO_UPDATE : ${autoUpdate}`;
+Ravi de vous retrouver ici pour échanger, partager des idées et découvrir les fonctionnalités du bot. Merci de respecter les autres : pas de spam, de liens indésirables ni de messages haineux.
+
+Groupe Telegram : https://t.me/+TYpRg-AoN4gzNzNl
+Merci de lire les règles du groupe.
+
+Pour découvrir les extensions et ressources Levanter : https://levanter.site
+Aide Levanter : @levanter_group_bot
+
+✅ ${config.botName} est connecté à WhatsApp.
+
+Fonctionnalités :
+- AUTO_STATUS (téléchargement des statuts reçus dans ce PV) : ${autoStatus}
+- AUTO_STATUS_VIEW (lecture automatique des statuts) : ${autoStatusView}
+- SEND_READ (accusés de lecture) : ${sendRead}
+- AUTO_UPDATE (mises à jour automatiques depuis GitHub) : ${autoUpdate}
+
+Activation ou désactivation :
+.setvar AUTO_STATUS = on/off
+.setvar AUTO_UPDATE = on/off`;
 
       await socket.sendMessage(ownerJid, { text: welcome });
       welcomeMessageSent = true;

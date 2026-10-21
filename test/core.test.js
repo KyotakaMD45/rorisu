@@ -815,6 +815,31 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
   updater.stop();
 });
 
+test('le vérificateur automatique contrôle GitHub dès la connexion', async () => {
+  const calls = [];
+  let resolveFirstFetch;
+  const firstFetch = new Promise((resolve) => {
+    resolveFirstFetch = resolve;
+  });
+  const updater = createAutoUpdater({
+    storage: { async get() { return true; } },
+    lifecycle: { async restart() {} },
+    logger: { info() {}, error(error, message) { throw new Error(message, { cause: error }); } },
+    async executeGit(args) {
+      calls.push(args);
+      if (args[0] === 'fetch') resolveFirstFetch();
+      if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return { stdout: 'origin/main\n' };
+      return { stdout: 'same\n' };
+    },
+  });
+
+  updater.start();
+  await firstFetch;
+  updater.stop();
+
+  assert.deepEqual(calls[0], ['fetch']);
+});
+
 test('le gestionnaire traite les commandes du compte lié et des autres comptes', async () => {
   const executed = [];
   const sent = [];

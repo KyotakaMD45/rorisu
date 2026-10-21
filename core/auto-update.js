@@ -53,6 +53,7 @@ export function createAutoUpdater({ storage, lifecycle, logger, executeGit = run
   return {
     start() {
       if (timer) return;
+      void checkNow();
       timer = setInterval(() => void checkNow(), checkIntervalMs);
       timer.unref();
     },
