@@ -215,6 +215,20 @@ export function createMessageHandler({ plugins, config, storage, logger, onIncom
         const plugin = plugins.get(commandName?.toLowerCase());
         if (!plugin) continue;
 
+        if (chatId.endsWith('@g.us') && !isSudo && plugin.name !== 'rori') {
+          const allowedCommands = await storage.get(`group:${chatId}:allowed_commands`);
+          if (Array.isArray(allowedCommands)) {
+            const metadata = await socket.groupMetadata(chatId);
+            if (!isGroupAdmin(findParticipant(metadata.participants || [], senderJid))
+              && !allowedCommands.includes(plugin.name.toLowerCase())) {
+              await socket.sendMessage(chatId, {
+                text: 'Cette commande n’est pas autorisée aux membres. Utilise .rori list pour voir les commandes disponibles.',
+              }, { quoted: message });
+              continue;
+            }
+          }
+        }
+
         const contextInfo = getContextInfo(message);
         const quotedMessage = contextInfo.quotedMessage
           ? {
@@ -242,6 +256,7 @@ export function createMessageHandler({ plugins, config, storage, logger, onIncom
           text,
           config,
           storage,
+          plugins,
           lifecycle,
           logger,
           sendReply: (reply, extra = {}) => socket.sendMessage(

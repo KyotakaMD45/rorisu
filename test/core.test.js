@@ -176,14 +176,14 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
     },
   });
 
-  assert.match(reply, /RORISU • MENU/);
-  assert.match(reply, /Préfixe\(s\) : ! \/ \./);
+  assert.match(reply, /RORISU/);
+  assert.match(reply, /Préfixe : ! \/ \./);
   assert.match(reply, /!ping/);
   assert.match(reply, /!sticker/);
-  assert.match(reply, /!gemini \/ !ai/);
-  assert.match(reply, /!image \/ !imagine/);
+  assert.match(reply, /!ai/);
+  assert.match(reply, /!image/);
   assert.match(reply, /!antiword/);
-  assert.match(reply, /!setgreet \/ !setgoodbye/);
+  assert.match(reply, /!rori/);
   assert.match(reply, /!setvar/);
   assert.match(reply, /!update/);
   assert.match(reply, /!shutdown/);

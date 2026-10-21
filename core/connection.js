@@ -92,28 +92,21 @@ export async function createConnection({
       const autoStatusView = await storage.get('feature:auto_status_view') === true ? 'activée' : 'désactivée';
       const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
       const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
-      const welcome = `🔥 Bienvenue dans la communauté ${config.botName} !
-
-Ravi de vous retrouver ici pour échanger, partager des idées et découvrir les fonctionnalités du bot. Merci de respecter les autres : pas de spam, de liens indésirables ni de messages haineux.
-
-Groupe Telegram : https://t.me/+TYpRg-AoN4gzNzNl
-Merci de lire les règles du groupe.
-
-Pour découvrir les extensions et ressources Levanter : https://levanter.site
-Aide Levanter : @levanter_group_bot
-
-✅ ${config.botName} est connecté à WhatsApp.
-
-Fonctionnalités :
-- AUTO_STATUS (téléchargement des statuts reçus dans ce PV) : ${autoStatus}
-- AUTO_STATUS_VIEW (lecture automatique des statuts) : ${autoStatusView}
-- SEND_READ (accusés de lecture) : ${sendRead}
-- AUTO_UPDATE (mises à jour automatiques depuis GitHub) : ${autoUpdate}
-- GEMINI (assistant IA) : ${config.gemini.apiKey ? 'activé' : 'désactivé — clé GEMINI_API_KEY manquante'}
-
-Activation ou désactivation :
-.setvar AUTO_STATUS = on/off
-.setvar AUTO_UPDATE = on/off`;
+      const prefix = config.prefixes?.[0] || '.';
+      const welcome = [
+        `✅ *${config.botName} est connecté !*`,
+        '',
+        `Préfixe : ${prefix}`,
+        `Statuts vers le propriétaire : ${autoStatus}`,
+        `Lecture automatique des statuts : ${autoStatusView}`,
+        `Accusés de lecture : ${sendRead}`,
+        `Mise à jour automatique : ${autoUpdate}`,
+        `Assistant Gemini : ${config.gemini.apiKey ? 'activé' : 'désactivé (clé API manquante)'}`,
+        '',
+        `Commandes : ${prefix}list • ${prefix}ping • ${prefix}rori`,
+        `Réglages : ${prefix}setvar AUTO_STATUS = on/off`,
+        `${prefix}setvar AUTO_UPDATE = on/off`,
+      ].join('\n');
 
       await socket.sendMessage(ownerJid, { text: welcome });
       welcomeMessageSent = true;

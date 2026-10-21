@@ -68,7 +68,7 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | `.list`, `.alive`, `.ping` | Aide et état du bot. |
 | `.gemini`, `.ai`, `.image`, `.imagine` | Assistant multimodal et génération d’images. |
 | `.sticker`, `.poll`, `.afk`, `.react`, `.delete` | Outils de discussion. |
-| `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall` | Modération et outils de groupe. |
+| `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
 | `.update`, `.restart`, `.shutdown` | Maintenance (propriétaire uniquement). |
