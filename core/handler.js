@@ -117,6 +117,27 @@ export function createMessageHandler({ plugins, config, storage, logger }) {
             }
           }
         }
+        const antiwordSettings = chatId.endsWith('@g.us') && !message.key.fromMe
+          ? await storage.get(`group:${chatId}:antiword`)
+          : null;
+        if (antiwordSettings?.enabled && Array.isArray(antiwordSettings.words)) {
+          const metadata = await socket.groupMetadata(chatId);
+          const participants = metadata.participants || [];
+          if (!isGroupAdmin(findParticipant(participants, senderJid))) {
+            const contentWords = text.toLowerCase().match(/[\p{L}\p{N}_-]+/gu) || [];
+            const blockedWord = antiwordSettings.words.find((word) => contentWords.includes(word));
+            if (blockedWord) {
+              const bot = findParticipant(participants, socket.user?.id);
+              if (!isGroupAdmin(bot)) {
+                logger.error({ chatId }, 'Anti-mots actif mais le bot n’est plus administrateur du groupe.');
+              } else {
+                await socket.sendMessage(chatId, { delete: message.key });
+                await socket.sendMessage(chatId, { text: 'Ce message contient un mot interdit dans ce groupe.' });
+                continue;
+              }
+            }
+          }
+        }
         if (chatId.endsWith('@g.us') && !message.key.fromMe && !prefix) {
           const filters = await storage.get(`group:${chatId}:filters`) || {};
           const normalizedText = text.toLowerCase();

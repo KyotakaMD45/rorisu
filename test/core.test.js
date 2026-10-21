@@ -17,6 +17,14 @@ import antilinkPlugin from '../plugins/antilink.js';
 import warnPlugin from '../plugins/warn.js';
 import groupPlugin from '../plugins/group.js';
 import filterPlugin from '../plugins/filter.js';
+import greetPlugin from '../plugins/greet.js';
+import { handleGroupParticipantsUpdate } from '../core/group-events.js';
+import antiwordPlugin from '../plugins/antiword.js';
+import tagPlugin from '../plugins/tag.js';
+import ginfoPlugin from '../plugins/ginfo.js';
+import reactPlugin from '../plugins/react.js';
+import deletePlugin from '../plugins/delete.js';
+import alivePlugin from '../plugins/alive.js';
 import { createAutoUpdater } from '../core/auto-update.js';
 import { readEnvVariables, writeEnvVariable } from '../core/env.js';
 import { initializeFeatureSettings } from '../core/feature-settings.js';
@@ -76,7 +84,7 @@ test('charge les options depuis .env et migre les anciennes valeurs du stockage'
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'warn', 'filter', 'stop', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker']) {
+  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'update', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
 });
@@ -109,6 +117,55 @@ test('le menu présente les commandes et le préfixe configuré', async () => {
   assert.match(reply, /!update/);
   assert.match(reply, /!setvar AUTO_STATUS/);
   assert.match(reply, /!shutdown/);
+});
+
+test('alive affiche l’état des options persistantes', async () => {
+  let reply;
+  await alivePlugin.execute({
+    config: { botName: 'RORISU' },
+    storage: { async get(key) { return key === 'feature:auto_status'; } },
+    async sendReply(text) { reply = text; },
+  });
+  assert.match(reply, /RORISU est en ligne/);
+  assert.match(reply, /AUTO_STATUS : activé/);
+  assert.match(reply, /AUTO_UPDATE : désactivée/);
+});
+
+test('react réagit uniquement à un message cité', async () => {
+  const sent = [];
+  const context = {
+    socket: { async sendMessage(chatId, content) { sent.push({ chatId, content }); } },
+    chatId: 'group@g.us',
+    quotedMessage: { key: { id: 'quoted', remoteJid: 'group@g.us' } },
+    args: ['👍'],
+    async sendReply() {},
+  };
+  await reactPlugin.execute(context);
+  assert.deepEqual(sent[0].content.react, { text: '👍', key: context.quotedMessage.key });
+});
+
+test('delete refuse les messages d’autrui sans privilèges de groupe', async () => {
+  const replies = [];
+  await deletePlugin.execute({
+    socket: {
+      user: { id: '999@s.whatsapp.net' },
+      async groupMetadata() {
+        return { participants: [{ id: '33612345678@s.whatsapp.net' }, { id: '999@s.whatsapp.net' }] };
+      },
+    },
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    quotedMessage: {
+      key: {
+        id: 'other-message',
+        remoteJid: 'group@g.us',
+        participant: '33687654321@s.whatsapp.net',
+      },
+    },
+    async sendReply(text) { replies.push(text); },
+  });
+  assert.match(replies[0], /administrateur/);
 });
 
 test('le sondage valide les choix et utilise le format poll de Baileys', async () => {
@@ -380,6 +437,166 @@ test('les filtres de groupe enregistrent et suppriment des réponses', async () 
   await filterPlugin.execute({ ...context, args: ['bonjour'], text: '.stop bonjour' });
   assert.deepEqual(values.get('group:group@g.us:filters'), {});
   assert.match(replies[1], /supprimée/);
+});
+
+test('les messages de bienvenue sont configurables par les administrateurs et mentionnent les nouveaux membres', async () => {
+  const values = new Map();
+  const replies = [];
+  const context = {
+    socket: {
+      async groupMetadata() {
+        return { participants: [{ id: '33612345678@s.whatsapp.net', admin: 'admin' }] };
+      },
+    },
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: ['Bienvenue', '{user}'],
+    text: '.setgreet Bienvenue {user}',
+    config: { prefixes: ['.'] },
+    async sendReply(text) { replies.push(text); },
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+  };
+  await greetPlugin.execute(context);
+  assert.equal(values.get('group:group@g.us:welcome'), 'Bienvenue {user}');
+
+  const sent = [];
+  await handleGroupParticipantsUpdate({
+    id: 'group@g.us',
+    action: 'add',
+    participants: ['33687654321:2@s.whatsapp.net'],
+  }, {
+    socket: { async sendMessage(chatId, message) { sent.push({ chatId, message }); } },
+    storage: context.storage,
+  });
+  assert.deepEqual(sent, [{
+    chatId: 'group@g.us',
+    message: {
+      text: 'Bienvenue @33687654321',
+      mentions: ['33687654321@s.whatsapp.net'],
+    },
+  }]);
+  assert.match(replies[0], /Message d’accueil enregistré/);
+});
+
+test('antiword enregistre une liste de mots par groupe', async () => {
+  const values = new Map();
+  const replies = [];
+  const context = {
+    socket: {
+      async groupMetadata() {
+        return { participants: [{ id: '33612345678@s.whatsapp.net', admin: 'admin' }] };
+      },
+    },
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: ['add', 'spam'],
+    async sendReply(text) { replies.push(text); },
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+  };
+
+  await antiwordPlugin.execute(context);
+  await antiwordPlugin.execute({ ...context, args: ['on'] });
+  assert.deepEqual(values.get('group:group@g.us:antiword'), { enabled: true, words: ['spam'] });
+  assert.match(replies[1], /activé/);
+});
+
+test('antiword supprime un mot interdit envoyé par un membre non-admin', async () => {
+  const sent = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: [] },
+    storage: {
+      async get(key) {
+        if (key === 'group:group@g.us:antiword') return { enabled: true, words: ['spam'] };
+        return null;
+      },
+      async set() {},
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const message = {
+    key: {
+      remoteJid: 'group@g.us',
+      participant: '33687654321@s.whatsapp.net',
+      id: 'blocked-word-message',
+    },
+    message: { conversation: 'ceci est un SPAM interdit' },
+  };
+  const socket = {
+    user: { id: '999@s.whatsapp.net' },
+    async groupMetadata() {
+      return {
+        participants: [
+          { id: '33687654321@s.whatsapp.net' },
+          { id: '999@s.whatsapp.net', admin: 'admin' },
+        ],
+      };
+    },
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+
+  await handler({ type: 'notify', messages: [message] }, socket);
+  assert.deepEqual(sent, [
+    { chatId: 'group@g.us', content: { delete: message.key } },
+    { chatId: 'group@g.us', content: { text: 'Ce message contient un mot interdit dans ce groupe.' } },
+  ]);
+});
+
+test('tagall est limité aux administrateurs et aux petits groupes', async () => {
+  const sent = [];
+  const socket = {
+    async groupMetadata() {
+      return {
+        participants: [
+          { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+          { id: '33687654321@s.whatsapp.net' },
+        ],
+      };
+    },
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+  await tagPlugin.execute({
+    socket,
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: ['Réunion', 'à', '14h'],
+    async sendReply() {},
+  });
+  assert.equal(sent[0].content.text, 'Réunion à 14h\n@33612345678 @33687654321');
+  assert.equal(sent[0].content.mentions.length, 2);
+});
+
+test('ginfo affiche le titre et les rôles sans exposer le lien du groupe', async () => {
+  let reply;
+  await ginfoPlugin.execute({
+    socket: {
+      async groupMetadata() {
+        return {
+          subject: 'Groupe test',
+          participants: [
+            { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+            { id: '33687654321@s.whatsapp.net' },
+          ],
+        };
+      },
+    },
+    chatId: 'group@g.us',
+    isGroup: true,
+    async sendReply(text) { reply = text; },
+  });
+  assert.match(reply, /Groupe : Groupe test/);
+  assert.match(reply, /Membres : 2/);
+  assert.match(reply, /Administrateurs : @33612345678/);
 });
 
 test('setvar active ou désactive les options et rejette les valeurs invalides', async () => {

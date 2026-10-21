@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAutoUpdater } from './auto-update.js';
+import { handleGroupParticipantsUpdate } from './group-events.js';
 
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -126,6 +127,11 @@ Fonctions activées/désactivées :
 
     socket.ev.on('creds.update', saveCreds);
     socket.ev.on('messages.upsert', (event) => onMessages(event, socket, lifecycle));
+    socket.ev.on('group-participants.update', (update) => {
+      void handleGroupParticipantsUpdate(update, { socket, storage }).catch((error) => {
+        logger.error({ err: error, groupId: update.id }, 'Impossible d’envoyer le message automatique du groupe.');
+      });
+    });
     socket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       if (connection === 'open') {
         connectionOpen = true;

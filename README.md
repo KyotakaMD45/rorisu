@@ -43,12 +43,19 @@ Avec le préfixe `.` par défaut :
 | Commande | Fonction |
 | --- | --- |
 | `.ping` | Vérifie que le bot est en ligne. |
+| `.alive` | Affiche l’état du bot et l’état des options automatiques. |
 | `.list` | Affiche les commandes disponibles. |
+| `.react emoji` | Réagit au message cité. |
+| `.delete` / `.dlt` | Supprime son propre message ou, avec les droits admin, le message cité d’un groupe. |
 | `.afk [raison]` / `.afk off` | Active ou désactive le statut d’absence et prévient les membres qui vous mentionnent. |
 | `.poll question, choix 1, choix 2` | Crée un sondage WhatsApp avec un choix par vote. |
 | `.antilink on` / `.antilink off` | Active ou désactive la suppression des liens dans le groupe (admin requis ; le bot doit être admin pour supprimer). |
+| `.antiword on|off`, `.antiword add|remove mot`, `.antiword list` | Gère les mots interdits d’un groupe (admin requis). |
 | `.warn @membre` / `.warn reset @membre` | Avertit un membre ; au troisième avertissement, le bot tente de le retirer s’il est admin et la cible ne l’est pas. |
 | `.filter phrase = réponse` / `.stop phrase` | Configure ou supprime une réponse automatique de groupe (admin requis). |
+| `.setgreet message` / `.setgoodbye message` | Configure les messages d’arrivée et de départ ; `{user}` mentionne les membres (admin requis). |
+| `.ginfo` | Affiche le titre, le nombre de membres et les administrateurs du groupe. |
+| `.tagall [message]` | Mentionne les membres d’un groupe (admin requis ; maximum 50 mentions). |
 | `.sticker` | Convertit une image ou une vidéo en autocollant WebP ; utilisez la commande avec le média ou citez son message. Les médias de plus de 20 Mo sont refusés et les vidéos sont limitées à 10 secondes. |
 | `.kick @membre` | Retire un membre du groupe. |
 | `.add @membre` | Ajoute un membre au groupe. |
