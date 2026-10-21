@@ -22,7 +22,7 @@ async function start() {
 
   try {
     await apiServer?.listen();
-    logger.info(`${config.botName} démarre avec ${plugins.size} commandes et alias.`);
+    console.log(`🚀 ${config.botName} démarre (${plugins.size} commandes et alias).`);
     const connections = [];
     for (const sessionId of config.sessionIds) {
       const sessionConfig = {

@@ -65,7 +65,19 @@ export async function createConnection({
     delete state.creds.me;
     await saveCreds();
   }
-  const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+  const logger = pino({
+    level: process.env.LOG_LEVEL || 'warn',
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        hideObject: true,
+        ignore: 'pid,hostname',
+        singleLine: true,
+        translateTime: 'SYS:HH:MM:ss',
+      },
+    },
+  });
   let socket;
   let reconnectTimer;
   let pairingTimer;
@@ -210,7 +222,7 @@ export async function createConnection({
     socket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       if (connection === 'open') {
         connectionOpen = true;
-        logger.info('Connexion WhatsApp établie.');
+        console.log(`✅ ${config.botName} est connecté à WhatsApp.`);
         if (enableAutoUpdater) autoUpdater.start();
         if (notifyOwnerOnConnect) await notifyOwner();
       } else if (connection === 'close' && !stopped) {
