@@ -36,7 +36,14 @@ function getContextInfo(message) {
 }
 
 // Relie les mises à jour WhatsApp aux commandes et aux plugins chargés.
-export function createMessageHandler({ plugins, config, storage, logger, onIncoming }) {
+export function createMessageHandler({
+  plugins,
+  config,
+  storage,
+  logger,
+  onIncoming,
+  forwardViewOnceMessage = forwardViewOnce,
+}) {
   const processingStatusIds = new Set();
   const cachedMessages = new Map();
   const processedViewOnceIds = new Set();
@@ -113,7 +120,8 @@ export function createMessageHandler({ plugins, config, storage, logger, onIncom
         }
 
         const antiDeleteSettings = await storage.get('feature:anti_delete');
-        const antiViewOnceEnabled = await storage.get('feature:anti_vv') === true;
+        const antiVvSettings = await storage.get('feature:anti_vv');
+        const antiViewOnceEnabled = antiVvSettings === true || antiVvSettings?.enabled === true;
         if (antiDeleteSettings) cacheMessage(cachedMessages, message);
         if (antiViewOnceEnabled && !message.key.fromMe && isViewOnceMessage(message)) {
           const messageId = message.key.id;
@@ -124,12 +132,23 @@ export function createMessageHandler({ plugins, config, storage, logger, onIncom
               processedViewOnceIds.delete(processedViewOnceIds.values().next().value);
             }
             try {
-              if (!config.sudoNumbers[0]) {
-                logger.error('ANTIVV est activé mais aucun propriétaire n’est configuré dans SUDO.');
+              const configuredDestination = antiVvSettings === true
+                ? 'p'
+                : antiVvSettings.destination || 'p';
+              const ownerJid = config.sudoNumbers[0]
+                ? `${config.sudoNumbers[0]}@s.whatsapp.net`
+                : '';
+              const destination = configuredDestination === 'p'
+                ? ownerJid
+                : configuredDestination === 'g'
+                  ? chatId
+                  : configuredDestination;
+              if (!destination) {
+                logger.error('ANTIVV est activé vers le propriétaire mais aucun numéro n’est configuré dans SUDO.');
               } else {
-                await forwardViewOnce({
+                await forwardViewOnceMessage({
                   socket,
-                  destination: `${config.sudoNumbers[0]}@s.whatsapp.net`,
+                  destination,
                   message,
                   logger,
                 });

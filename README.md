@@ -6,7 +6,7 @@ Bot WhatsApp Node.js basé sur Baileys : commandes de groupe, API HTTP, extensio
 
 Choisissez votre plateforme et lancez la commande dans son terminal :
 
-**VPS Debian/Ubuntu** (service systemd; fonctionne avec un utilisateur `sudo` ou root) :
+**VPS Debian/Ubuntu** (PM2; fonctionne avec un utilisateur `sudo` ou root) :
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.sh | bash
@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/mast
 irm https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.ps1 | iex
 ```
 
-Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Scannez le QR code affiché pour associer le bot. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
+Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Le bot est géré par PM2 et redémarre avec le VPS. L’installation affiche son état sans afficher les conversations; les journaux techniques et le QR ne sont consultables que sur demande avec `pm2 logs rorisu-baileys-bot`. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
 
 ## Configuration
 
@@ -68,7 +68,7 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | `.list`, `.alive`, `.ping` | Aide et état du bot. |
 | `.gemini`, `.ai`, `.image`, `.imagine` | Assistant multimodal et génération d’images. |
 | `.sticker`, `.poll`, `.afk`, `.react`, `.dlt` | Outils de discussion; `.dlt` supprime le message cité avec les permissions nécessaires. |
-| `.delete p/g/off`, `.antidelete`, `.vv`, `.antivv on/off` | Récupération anti-suppression, restauration manuelle d’un média à vue unique cité, et transfert optionnel des médias à vue unique au propriétaire. Limite média : 20 Mo. |
+| `.delete p/g/JID/off`, `.antidelete`, `.vv`, `.antivv on/off/JID` | Récupération anti-suppression, restauration manuelle d’un média à vue unique cité, et transfert optionnel des médias à vue unique. Limite média : 20 Mo. |
 | `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
@@ -76,9 +76,11 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
 
-Pour l’anti-suppression, le propriétaire peut utiliser `.delete p` pour recevoir les messages supprimés en privé, `.delete g` pour les renvoyer dans la discussion d’origine, ou `.delete off` pour désactiver la fonction. Les filtres facultatifs sont `pm`, `gm`, `no-pm` et `no-gm`; une destination WhatsApp peut aussi être fournie à la place de `p` ou `g`. La récupération utilise un cache mémoire des 300 derniers messages, effacé au redémarrage. `.delete` sans option ou `.dlt` sur un message cité conserve la suppression manuelle.
+Pour l’anti-suppression, le propriétaire peut utiliser `.delete p` pour recevoir les messages supprimés en privé, `.delete g` pour les renvoyer dans la discussion d’origine, ou `.delete off` pour désactiver la fonction. Les filtres facultatifs sont `pm`, `gm`, `no-pm` et `no-gm`; un numéro international ou un JID WhatsApp peut aussi être fourni à la place de `p` ou `g`. La récupération utilise un cache mémoire des 300 derniers messages, effacé au redémarrage. `.delete` sans option ou `.dlt` sur un message cité conserve la suppression manuelle.
 
-`.vv` retransmet dans la discussion le média à vue unique auquel on répond. `.antivv on` active le transfert automatique des prochains médias à vue unique reçus vers le propriétaire; `.antivv off` le désactive. Utilise ces fonctions en respectant le consentement des personnes qui ont envoyé les médias.
+`.vv` retransmet dans la discussion le média à vue unique auquel on répond. `.antivv on` transfère automatiquement les prochains médias à vue unique au propriétaire; `.antivv on g` les renvoie dans la discussion d’origine; `.antivv on <JID>` les envoie vers un JID ou numéro choisi. `.antivv off` désactive la fonction et `.antivv info` affiche son état. Utilise ces fonctions en respectant le consentement des personnes qui ont envoyé les médias.
+
+Sur VPS, gérez le processus avec `pm2 status`, `pm2 restart rorisu-baileys-bot` ou `pm2 stop rorisu-baileys-bot`. Les mises à jour `.update now` et `AUTO_UPDATE` installent également les dépendances de production avant de redémarrer.
 
 ## API et Docker
 

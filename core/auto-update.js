@@ -1,7 +1,7 @@
 import { checkForUpdates, installUpdates } from './git-updates.js';
 const checkIntervalMs = 5 * 60 * 1000;
 
-export function createAutoUpdater({ storage, lifecycle, logger, executeGit }) {
+export function createAutoUpdater({ storage, lifecycle, logger, executeGit, executeNpm }) {
   let timer;
   let checking = false;
 
@@ -15,7 +15,7 @@ export function createAutoUpdater({ storage, lifecycle, logger, executeGit }) {
       const { commits } = await checkForUpdates(executeGit);
       if (!commits.length) return;
 
-      await installUpdates(executeGit);
+      await installUpdates(executeGit, executeNpm);
       logger.info('Mise à jour automatique installée ; redémarrage du bot.');
       await lifecycle.restart();
     } catch (error) {

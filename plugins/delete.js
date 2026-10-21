@@ -2,6 +2,7 @@ import {
   findParticipant,
   isGroupAdmin,
   normalizeJid,
+  parseWhatsAppJid,
 } from '../core/group-utils.js';
 
 export default {
@@ -36,11 +37,7 @@ export default {
         : rawDestination.toLowerCase();
       const scope = rawScope?.toLowerCase();
       const validScopes = ['pm', 'gm', 'no-pm', 'no-gm'];
-      const normalizedDestination = /^\+?\d{5,20}$/.test(rawDestination)
-        ? `${rawDestination.replace(/^\+/, '')}@s.whatsapp.net`
-        : rawDestination;
-      const isValidJid = /^\d{5,20}(?::\d+)?@s\.whatsapp\.net$/i.test(normalizedDestination)
-        || /^\d{5,40}(?:-\d{5,20})?@g\.us$/i.test(normalizedDestination);
+      const normalizedDestination = parseWhatsAppJid(rawDestination);
 
       if (extra.length || (scope && !validScopes.includes(scope))) {
         await sendReply('Utilisation : .delete p|g|<JID> [pm|gm|no-pm|no-gm] ou .delete off.');
@@ -51,7 +48,7 @@ export default {
         await sendReply('Anti-suppression désactivée.');
         return;
       }
-      if (!['p', 'g'].includes(destination) && !isValidJid) {
+      if (!['p', 'g'].includes(destination) && !normalizedDestination) {
         await sendReply('Utilisation : .delete p|g|<JID> [pm|gm|no-pm|no-gm] ou .delete off.');
         return;
       }

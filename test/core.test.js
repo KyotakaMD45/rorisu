@@ -802,11 +802,13 @@ test('écrit les variables de configuration sans conserver les doublons', async 
 test('le vérificateur automatique ne récupère et installe les mises à jour qu’après activation', async () => {
   const values = new Map([['feature:auto_update', false]]);
   const calls = [];
+  const npmCalls = [];
   let restarted = false;
   const updater = createAutoUpdater({
     storage: { async get(key) { return values.get(key) ?? null; } },
     lifecycle: { async restart() { restarted = true; } },
     logger: { info() {}, error(error, message) { throw new Error(message, { cause: error }); } },
+    async executeNpm(command, args) { npmCalls.push([command, args]); },
     async executeGit(args) {
       calls.push(args);
       if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return { stdout: 'origin/main\n' };
@@ -830,6 +832,10 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
     ['log', '--format=%h%x09%s', 'HEAD..origin/main'],
     ['merge', '--ff-only', '@{upstream}'],
   ]);
+  assert.equal(npmCalls.length, 1);
+  assert.deepEqual(npmCalls[0][1], process.platform === 'win32'
+    ? ['/d', '/s', '/c', 'npm ci --omit=dev']
+    : ['ci', '--omit=dev']);
   assert.equal(restarted, true);
   updater.stop();
 });
@@ -844,6 +850,7 @@ test('le vérificateur automatique contrôle GitHub dès la connexion', async ()
     storage: { async get() { return true; } },
     lifecycle: { async restart() {} },
     logger: { info() {}, error(error, message) { throw new Error(message, { cause: error }); } },
+    async executeNpm() {},
     async executeGit(args) {
       calls.push(args);
       if (args[0] === 'fetch') resolveFirstFetch();

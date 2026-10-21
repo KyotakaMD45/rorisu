@@ -59,7 +59,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 elif [[ "$install_user" != root ]]; then
   command -v runuser >/dev/null 2>&1 || fail "runuser est nécessaire pour installer depuis root pour $install_user."
 fi
-command -v systemctl >/dev/null 2>&1 || fail "systemd est nécessaire."
+command -v systemctl >/dev/null 2>&1 || fail "systemd est nécessaire pour activer PM2 au démarrage."
 
 if [[ -e "$install_dir" ]]; then
   fail "le chemin existe déjà : $install_dir. Définissez RORISU_INSTALL_DIR pour en choisir un autre."
@@ -103,33 +103,24 @@ run_install_user sed -i "s/^SUDO=.*/SUDO=$sudo_number/" "$install_dir/config.env
 printf 'Installation des dépendances du bot...\n'
 run_install_user npm --prefix "$install_dir" ci --omit=dev
 
-service_file="$(mktemp)"
-trap 'rm -f "$service_file"' EXIT
-cat > "$service_file" <<EOF
-[Unit]
-Description=RORISU WhatsApp Bot
-After=network-online.target
-Wants=network-online.target
+printf 'Installation de PM2...\n'
+run_root npm install --global pm2
+command -v pm2 >/dev/null 2>&1 || fail "PM2 n’a pas pu être installé."
 
-[Service]
-Type=simple
-User=$install_user
-WorkingDirectory=$install_dir
-ExecStart=$(command -v node) $install_dir/index.js
-Restart=on-failure
-RestartSec=5
-Environment=NODE_ENV=production
+run_root pm2 startup systemd -u "$install_user" --hp "$install_home"
+run_install_user mkdir -p "$install_dir/logs"
+run_install_user env NODE_ENV=production pm2 start "$install_dir/index.js" \
+  --name "$service_name" \
+  --cwd "$install_dir" \
+  --time \
+  --output "$install_dir/logs/bot-out.log" \
+  --error "$install_dir/logs/bot-error.log"
+run_install_user pm2 save
 
-[Install]
-WantedBy=multi-user.target
-EOF
-
-run_root install -m 0644 "$service_file" "/etc/systemd/system/$service_name.service"
-run_root systemctl daemon-reload
-run_root systemctl enable --now "$service_name"
-
-printf '\nInstallation terminée. Le bot démarre automatiquement avec le VPS.\n'
-printf 'Pour afficher le QR code de connexion WhatsApp :\n'
-printf '  sudo journalctl -u %s -f\n' "$service_name"
-printf 'État du service : sudo systemctl status %s\n' "$service_name"
+printf '\nInstallation terminée : %s est lancé avec PM2 et démarrera avec le VPS.\n' "$service_name"
+printf 'État du bot :\n'
+run_install_user pm2 status "$service_name"
+printf 'Les messages WhatsApp ne sont pas affichés dans le terminal.\n'
+printf 'QR et journaux techniques (à consulter si besoin) : pm2 logs %s\n' "$service_name"
+printf 'Commandes PM2 : pm2 status, pm2 restart %s, pm2 stop %s\n' "$service_name" "$service_name"
 printf 'Configuration : %s/config.env (les réglages Gemini/API et autres options peuvent être complétés après).\n' "$install_dir"

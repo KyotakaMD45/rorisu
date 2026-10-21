@@ -44,6 +44,17 @@ export async function checkForUpdates(executeGit = runGit) {
   return { upstream, commits };
 }
 
-export function installUpdates(executeGit = runGit) {
-  return executeGit(['merge', '--ff-only', '@{upstream}']);
+export function installUpdates(executeGit = runGit, executeNpm = execFileAsync) {
+  return executeGit(['merge', '--ff-only', '@{upstream}']).then(async () => {
+    const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
+    const args = process.platform === 'win32'
+      ? ['/d', '/s', '/c', 'npm ci --omit=dev']
+      : ['ci', '--omit=dev'];
+    return executeNpm(command, args, {
+      cwd: projectDirectory,
+      env: { ...process.env, npm_config_fund: 'false', npm_config_audit: 'false' },
+      timeout: 300_000,
+      windowsHide: true,
+    });
+  });
 }

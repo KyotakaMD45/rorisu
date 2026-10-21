@@ -4,13 +4,15 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAutoUpdater } from './auto-update.js';
 import { handleGroupParticipantsUpdate } from './group-events.js';
 
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const execFileAsync = promisify(execFile);
 
 // Crée la session persistante, affiche un code d’association et reconnecte après une coupure.
 export async function createConnection({
@@ -55,6 +57,15 @@ export async function createConnection({
       autoUpdater?.stop();
       await storage.close();
       socket?.end(new Error('Arrêt demandé par un administrateur.'));
+      if (process.env.pm_id !== undefined) {
+        process.removeAllListeners('SIGINT');
+        process.removeAllListeners('SIGTERM');
+        await execFileAsync('pm2', ['stop', process.env.pm_id], {
+          timeout: 30_000,
+          windowsHide: true,
+        });
+        return;
+      }
       process.exit(0);
     },
     async restart(chatId) {
@@ -67,6 +78,10 @@ export async function createConnection({
       clearTimeout(ownerNotificationRetryTimer);
       autoUpdater?.stop();
       await storage.close();
+      socket?.end(new Error('Redémarrage demandé par un administrateur.'));
+      if (process.env.pm_id !== undefined) {
+        process.exit(0);
+      }
       const child = spawn(process.execPath, process.argv.slice(1), {
         cwd: projectDirectory,
         env: process.env,
@@ -94,7 +109,8 @@ export async function createConnection({
       const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
       const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
       const antiDelete = await storage.get('feature:anti_delete') ? 'activée' : 'désactivée';
-      const antiVv = await storage.get('feature:anti_vv') === true ? 'activée' : 'désactivée';
+      const antiVvSettings = await storage.get('feature:anti_vv');
+      const antiVv = antiVvSettings === true || antiVvSettings?.enabled === true ? 'activée' : 'désactivée';
       const prefix = config.prefixes?.[0] || '.';
       const welcome = [
         `✅ *${config.botName} est connecté !*`,

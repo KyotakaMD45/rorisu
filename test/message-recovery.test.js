@@ -9,6 +9,14 @@ import {
 import deletePlugin from '../plugins/delete.js';
 import antiVvPlugin from '../plugins/antivv.js';
 import vvPlugin from '../plugins/vv.js';
+import { parseWhatsAppJid } from '../core/group-utils.js';
+
+test('valide les numéros et JID WhatsApp comme destinations', () => {
+  assert.equal(parseWhatsAppJid('+33 6 12 34 56 78'), '33612345678@s.whatsapp.net');
+  assert.equal(parseWhatsAppJid('123456789-123456@g.us'), '123456789-123456@g.us');
+  assert.equal(parseWhatsAppJid('123456789:4@lid'), '123456789:4@lid');
+  assert.equal(parseWhatsAppJid('not-a-jid'), null);
+});
 
 test('delete configure la récupération des messages supprimés et accepte les filtres Levanter', async () => {
   const values = new Map();
@@ -30,6 +38,26 @@ test('delete configure la récupération des messages supprimés et accepte les 
   assert.deepEqual(values.get('feature:anti_delete'), {
     destination: 'p',
     scope: 'no-gm',
+  });
+
+  test('anti-suppression accepte un JID personnalisé', async () => {
+    const values = new Map();
+    await deletePlugin.execute({
+      args: ['123456789@g.us'],
+      text: '.delete 123456789@g.us',
+      config: { prefixes: ['.'] },
+      isSudo: true,
+      storage: {
+        async get(key) { return values.get(key) ?? null; },
+        async set(key, value) { values.set(key, value); },
+      },
+      async sendReply() {},
+    });
+
+    assert.deepEqual(values.get('feature:anti_delete'), {
+      destination: '123456789@g.us',
+      scope: null,
+    });
   });
   assert.match(replies[0], /propriétaire en privé/);
 });
@@ -77,10 +105,76 @@ test('antivv active et désactive le transfert automatique vers le propriétaire
   };
 
   await antiVvPlugin.execute(context);
-  assert.equal(values.get('feature:anti_vv'), true);
+  assert.deepEqual(values.get('feature:anti_vv'), {
+    enabled: true,
+    destination: 'p',
+  });
   await antiVvPlugin.execute({ ...context, args: ['off'] });
-  assert.equal(values.get('feature:anti_vv'), false);
-  assert.match(replies[0], /transférés au propriétaire/);
+  assert.deepEqual(values.get('feature:anti_vv'), {
+    enabled: false,
+    destination: 'p',
+  });
+  assert.match(replies[0], /transférés vers le propriétaire/);
+});
+
+test('antivv accepte une destination personnalisée et la désactive sans la perdre', async () => {
+  const values = new Map();
+  const context = {
+    isSudo: true,
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+    async sendReply() {},
+  };
+
+  await antiVvPlugin.execute({ ...context, args: ['on', '123456789@g.us'] });
+  assert.deepEqual(values.get('feature:anti_vv'), {
+    enabled: true,
+    destination: '123456789@g.us',
+  });
+  await antiVvPlugin.execute({ ...context, args: ['off'] });
+  assert.deepEqual(values.get('feature:anti_vv'), {
+    enabled: false,
+    destination: '123456789@g.us',
+  });
+});
+
+test('anti-VV envoie le média vers le JID configuré', async () => {
+  const values = new Map([
+    ['feature:anti_vv', { enabled: true, destination: '123456789@g.us' }],
+  ]);
+  const sent = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: [] },
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+      async increment() {},
+    },
+    logger: { error() {} },
+    async forwardViewOnceMessage({ destination }) {
+      sent.push({ chatId: destination });
+    },
+  });
+  const socket = {};
+
+  await handler({ type: 'notify', messages: [{
+    key: {
+      remoteJid: '987654321@s.whatsapp.net',
+      participant: '987654321@s.whatsapp.net',
+      id: 'view-once-to-forward',
+      fromMe: false,
+    },
+    message: {
+      viewOnceMessageV2: {
+        message: { imageMessage: { mimetype: 'image/jpeg', caption: 'test' } },
+      },
+    },
+  }] }, socket);
+
+  assert.equal(sent[0].chatId, '123456789@g.us');
 });
 
 test('vv exige une réponse à un média à vue unique', async () => {
