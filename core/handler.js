@@ -1,21 +1,18 @@
 import { normalizeNumber } from '../config.js';
-import { downloadMediaMessage } from '@whiskeysockets/baileys';
+import { WAMessageStubType, downloadMediaMessage } from '@whiskeysockets/baileys';
 import { findParticipant, isGroupAdmin } from './group-utils.js';
+import { unwrapMessage } from './message-content.js';
+import {
+  cacheMessage,
+  forwardViewOnce,
+  getRecoveryDestination,
+  isViewOnceMessage,
+  messageCacheKey,
+  sendRecoveredMessage,
+  shouldRecoverDeletedMessage,
+} from './message-recovery.js';
 
-// Retire les enveloppes ajoutées par WhatsApp avant de lire le texte ou les médias.
-export function unwrapMessage(message) {
-  let current = message?.message || message;
-  while (current?.ephemeralMessage?.message
-    || current?.viewOnceMessage?.message
-    || current?.viewOnceMessageV2?.message
-    || current?.documentWithCaptionMessage?.message) {
-    current = current.ephemeralMessage?.message
-      || current.viewOnceMessage?.message
-      || current.viewOnceMessageV2?.message
-      || current.documentWithCaptionMessage?.message;
-  }
-  return current || {};
-}
+export { unwrapMessage };
 
 function getMessageText(message) {
   const content = unwrapMessage(message);
@@ -41,8 +38,10 @@ function getContextInfo(message) {
 // Relie les mises à jour WhatsApp aux commandes et aux plugins chargés.
 export function createMessageHandler({ plugins, config, storage, logger, onIncoming }) {
   const processingStatusIds = new Set();
+  const cachedMessages = new Map();
+  const processedViewOnceIds = new Set();
 
-  return async function handleUpsert(event, socket, lifecycle) {
+  async function handleUpsert(event, socket, lifecycle) {
     // Ignore l'historique ajouté à la connexion pour éviter de rejouer d'anciennes commandes.
     if (event.type !== 'notify') return;
 
@@ -111,6 +110,34 @@ export function createMessageHandler({ plugins, config, storage, logger, onIncom
             processingStatusIds.delete(messageId);
           }
           continue;
+        }
+
+        const antiDeleteSettings = await storage.get('feature:anti_delete');
+        const antiViewOnceEnabled = await storage.get('feature:anti_vv') === true;
+        if (antiDeleteSettings) cacheMessage(cachedMessages, message);
+        if (antiViewOnceEnabled && !message.key.fromMe && isViewOnceMessage(message)) {
+          const messageId = message.key.id;
+          if (messageId && !processedViewOnceIds.has(messageId)) {
+            const viewOnceKey = messageCacheKey(message.key) || messageId;
+            processedViewOnceIds.add(viewOnceKey);
+            while (processedViewOnceIds.size > 300) {
+              processedViewOnceIds.delete(processedViewOnceIds.values().next().value);
+            }
+            try {
+              if (!config.sudoNumbers[0]) {
+                logger.error('ANTIVV est activé mais aucun propriétaire n’est configuré dans SUDO.');
+              } else {
+                await forwardViewOnce({
+                  socket,
+                  destination: `${config.sudoNumbers[0]}@s.whatsapp.net`,
+                  message,
+                  logger,
+                });
+              }
+            } catch (error) {
+              logger.error({ err: error, messageId }, 'Impossible de transférer le média à vue unique.');
+            }
+          }
         }
 
         if (!message.key.fromMe
@@ -280,6 +307,45 @@ export function createMessageHandler({ plugins, config, storage, logger, onIncom
       }
     }
   };
+
+  handleUpsert.handleMessageUpdate = async (updates, socket) => {
+    for (const update of updates || []) {
+      if (update.update?.messageStubType !== WAMessageStubType.REVOKE) continue;
+      const settings = await storage.get('feature:anti_delete');
+      if (!settings) continue;
+
+      const originalKey = update.update.key || update.key;
+      const chatId = originalKey?.remoteJid || update.key?.remoteJid;
+      if (!chatId || !shouldRecoverDeletedMessage(settings, chatId)) continue;
+      const cached = cachedMessages.get(messageCacheKey(update.key));
+      if (!cached) continue;
+      cachedMessages.delete(messageCacheKey(update.key));
+
+      const ownerJid = config.sudoNumbers[0]
+        ? `${config.sudoNumbers[0]}@s.whatsapp.net`
+        : '';
+      if ((settings.destination === 'p' || settings.destination === 'owner') && !ownerJid) {
+        logger.error('ANTI-DELETE est configuré vers le propriétaire mais SUDO est vide.');
+        continue;
+      }
+      const destination = getRecoveryDestination(
+        { ...settings, destination: settings.destination === 'owner' ? 'p' : settings.destination },
+        chatId,
+        ownerJid,
+      );
+      try {
+        await sendRecoveredMessage({
+          socket,
+          destination,
+          message: cached.message,
+          logger,
+        });
+      } catch (error) {
+        logger.error({ err: error, chatId, messageId: update.key?.id }, 'Impossible de récupérer un message supprimé.');
+      }
+    }
+  };
+  return handleUpsert;
 }
 
 export { getMessageText };

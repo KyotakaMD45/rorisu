@@ -67,13 +67,18 @@ Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
 | --- | --- |
 | `.list`, `.alive`, `.ping` | Aide et état du bot. |
 | `.gemini`, `.ai`, `.image`, `.imagine` | Assistant multimodal et génération d’images. |
-| `.sticker`, `.poll`, `.afk`, `.react`, `.delete` | Outils de discussion. |
+| `.sticker`, `.poll`, `.afk`, `.react`, `.dlt` | Outils de discussion; `.dlt` supprime le message cité avec les permissions nécessaires. |
+| `.delete p/g/off`, `.antidelete`, `.vv`, `.antivv on/off` | Récupération anti-suppression, restauration manuelle d’un média à vue unique cité, et transfert optionnel des médias à vue unique au propriétaire. Limite média : 20 Mo. |
 | `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
 | `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie les mises à jour ou les installe, puis redémarre (propriétaire uniquement). |
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
+
+Pour l’anti-suppression, le propriétaire peut utiliser `.delete p` pour recevoir les messages supprimés en privé, `.delete g` pour les renvoyer dans la discussion d’origine, ou `.delete off` pour désactiver la fonction. Les filtres facultatifs sont `pm`, `gm`, `no-pm` et `no-gm`; une destination WhatsApp peut aussi être fournie à la place de `p` ou `g`. La récupération utilise un cache mémoire des 300 derniers messages, effacé au redémarrage. `.delete` sans option ou `.dlt` sur un message cité conserve la suppression manuelle.
+
+`.vv` retransmet dans la discussion le média à vue unique auquel on répond. `.antivv on` active le transfert automatique des prochains médias à vue unique reçus vers le propriétaire; `.antivv off` le désactive. Utilise ces fonctions en respectant le consentement des personnes qui ont envoyé les médias.
 
 ## API et Docker
 

@@ -49,6 +49,7 @@ async function start() {
         enableAutoUpdater: sessionId === config.sessionIds[0],
         notifyOwnerOnConnect: sessionId === config.sessionIds[0],
         onMessages: handleUpsert,
+        onMessageUpdate: handleUpsert.handleMessageUpdate,
         onSocket: (socket) => apiServer?.setSocket(sessionId, socket),
       }));
     }

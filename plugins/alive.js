@@ -7,9 +7,11 @@ export default {
     const autoStatusView = await storage.get('feature:auto_status_view') === true ? 'activée' : 'désactivée';
     const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
     const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
+    const antiDelete = await storage.get('feature:anti_delete') ? 'activée' : 'désactivée';
+    const antiVv = await storage.get('feature:anti_vv') === true ? 'activée' : 'désactivée';
     const uptimeMinutes = Math.floor(process.uptime() / 60);
     await sendReply(
-      `${config.botName} est en ligne.\nTemps de fonctionnement : ${uptimeMinutes} min.\nAUTO_STATUS : ${autoStatus}\nAUTO_STATUS_VIEW : ${autoStatusView}\nSEND_READ : ${sendRead}\nAUTO_UPDATE : ${autoUpdate}\nGEMINI : ${config.gemini?.apiKey ? 'activé' : 'désactivé (clé API manquante)'}`,
+      `${config.botName} est en ligne.\nTemps de fonctionnement : ${uptimeMinutes} min.\nAUTO_STATUS : ${autoStatus}\nAUTO_STATUS_VIEW : ${autoStatusView}\nSEND_READ : ${sendRead}\nAUTO_UPDATE : ${autoUpdate}\nANTI_DELETE : ${antiDelete}\nANTI_VV : ${antiVv}\nGEMINI : ${config.gemini?.apiKey ? 'activé' : 'désactivé (clé API manquante)'}`,
     );
   },
 };

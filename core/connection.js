@@ -16,6 +16,7 @@ const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url
 export async function createConnection({
   config,
   onMessages,
+  onMessageUpdate,
   onSocket,
   sessionId = '0',
   enableAutoUpdater = true,
@@ -92,6 +93,8 @@ export async function createConnection({
       const autoStatusView = await storage.get('feature:auto_status_view') === true ? 'activée' : 'désactivée';
       const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
       const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
+      const antiDelete = await storage.get('feature:anti_delete') ? 'activée' : 'désactivée';
+      const antiVv = await storage.get('feature:anti_vv') === true ? 'activée' : 'désactivée';
       const prefix = config.prefixes?.[0] || '.';
       const welcome = [
         `✅ *${config.botName} est connecté !*`,
@@ -101,6 +104,8 @@ export async function createConnection({
         `Lecture automatique des statuts : ${autoStatusView}`,
         `Accusés de lecture : ${sendRead}`,
         `Mise à jour automatique : ${autoUpdate}`,
+        `Anti-suppression : ${antiDelete}`,
+        `Anti-VV : ${antiVv}`,
         `Assistant Gemini : ${config.gemini.apiKey ? 'activé' : 'désactivé (clé API manquante)'}`,
         '',
         `Commandes : ${prefix}list • ${prefix}ping • ${prefix}rori`,
@@ -144,6 +149,13 @@ export async function createConnection({
 
     socket.ev.on('creds.update', saveCreds);
     socket.ev.on('messages.upsert', (event) => onMessages(event, socket, lifecycle, sessionId));
+    if (onMessageUpdate) {
+      socket.ev.on('messages.update', (updates) => {
+        void onMessageUpdate(updates, socket).catch((error) => {
+          logger.error({ err: error }, 'Impossible de traiter les mises à jour de messages WhatsApp.');
+        });
+      });
+    }
     socket.ev.on('group-participants.update', (update) => {
       void handleGroupParticipantsUpdate(update, { socket, storage }).catch((error) => {
         logger.error({ err: error, groupId: update.id }, 'Impossible d’envoyer le message automatique du groupe.');
