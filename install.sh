@@ -103,6 +103,9 @@ run_install_user sed -i "s/^SUDO=.*/SUDO=$sudo_number/" "$install_dir/config.env
 printf 'Installation des dépendances du bot...\n'
 run_install_user npm --prefix "$install_dir" ci --omit=dev
 
+printf 'Vérification du bot...\n'
+run_install_user npm --prefix "$install_dir" test
+
 printf 'Installation de PM2...\n'
 run_root npm install --global pm2
 command -v pm2 >/dev/null 2>&1 || fail "PM2 n’a pas pu être installé."
@@ -112,15 +115,22 @@ run_install_user mkdir -p "$install_dir/logs"
 run_install_user env NODE_ENV=production pm2 start "$install_dir/index.js" \
   --name "$service_name" \
   --cwd "$install_dir" \
+  --restart-delay 5000 \
   --time \
   --output "$install_dir/logs/bot-out.log" \
   --error "$install_dir/logs/bot-error.log"
+
+printf 'Configuration de la rotation des journaux PM2...\n'
+run_install_user pm2 install pm2-logrotate
+run_install_user pm2 set pm2-logrotate:max_size 10M
+run_install_user pm2 set pm2-logrotate:retain 7
+run_install_user pm2 set pm2-logrotate:compress true
 run_install_user pm2 save
 
 printf '\nInstallation terminée : %s est lancé avec PM2 et démarrera avec le VPS.\n' "$service_name"
 printf 'État du bot :\n'
 run_install_user pm2 status "$service_name"
 printf 'Les messages WhatsApp ne sont pas affichés dans le terminal.\n'
-printf 'QR et journaux techniques (à consulter si besoin) : pm2 logs %s\n' "$service_name"
+printf 'QR code et journaux techniques : pm2 logs %s\n' "$service_name"
 printf 'Commandes PM2 : pm2 status, pm2 restart %s, pm2 stop %s\n' "$service_name" "$service_name"
 printf 'Configuration : %s/config.env (les réglages Gemini/API et autres options peuvent être complétés après).\n' "$install_dir"
