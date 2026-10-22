@@ -224,6 +224,24 @@ test('jid affiche les identifiants de la discussion et du message cité', async 
   assert.match(replies[0], /Message cité : 33687654321@s\.whatsapp\.net/);
 });
 
+test('jid affiche l’identifiant du bot pour un message cité envoyé par le bot', async () => {
+  let reply;
+  await jidPlugin.execute({
+    chatId: '12345-67890@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    socket: { user: { id: '22500000000:2@s.whatsapp.net' } },
+    quotedMessage: {
+      key: {
+        remoteJid: '12345-67890@g.us',
+        fromMe: true,
+      },
+    },
+    async sendReply(text) { reply = text; },
+  });
+
+  assert.match(reply, /Message cité : 22500000000:2@s\.whatsapp\.net/);
+});
+
 test('le message de connexion privé inclut la session, le numéro et l’état des fonctions', () => {
   const welcome = buildOwnerWelcome({
     botName: 'teste',

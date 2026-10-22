@@ -4,7 +4,7 @@ export default {
   name: 'jid',
   aliases: ['id', 'getjid'],
   description: 'Affiche les identifiants JID de la discussion, de l’expéditeur et du message cité.',
-  async execute({ chatId, senderJid, quotedMessage, mentions = [], sendReply }) {
+  async execute({ chatId, senderJid, quotedMessage, mentions = [], socket, sendReply }) {
     const entries = [
       ['Discussion', chatId],
       ['Expéditeur', senderJid],
@@ -12,7 +12,12 @@ export default {
     ];
     if (quotedMessage?.key) {
       entries.push(
-        ['Message cité', quotedMessage.key.participant || quotedMessage.key.remoteJid],
+        [
+          'Message cité',
+          quotedMessage.key.participant
+            || (quotedMessage.key.fromMe ? socket?.user?.id : undefined)
+            || quotedMessage.key.remoteJid,
+        ],
       );
     }
 

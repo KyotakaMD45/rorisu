@@ -32,6 +32,29 @@ Les installateurs configurent `origin/master` comme source explicite des mises
 
 Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Avant le lancement, l’installation exécute les tests du projet. Le bot tourne sous PM2, redémarre après un crash avec un délai, et revient au redémarrage du VPS. Les journaux PM2 sont limités à 10 Mo par fichier et conservent les 7 derniers fichiers compressés. Après l’installation, consultez `pm2 status` puis `pm2 logs rorisu` pour voir le QR code de connexion et les journaux techniques. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
 
+### Mettre à jour sur un VPS
+
+Sur une installation créée avec l’installateur, le dépôt Git et PM2 sont déjà configurés :
+
+```sh
+pm2 status
+pm2 logs rorisu --lines 100
+```
+
+Dans WhatsApp, `.update` vérifie les commits disponibles et `.update now` installe la mise à jour puis redémarre le bot. Pour activer les mises à jour automatiques au démarrage et toutes les cinq minutes, envoie au bot :
+
+```text
+.setvar AUTO_UPDATE = on
+```
+
+Pour les anciennes installations PM2 dont les journaux `logs/` existaient avant la règle Git d’exclusion, exécute une seule fois depuis le dossier du bot, avant `.update now` :
+
+```sh
+printf '\n/logs/\n' >> .git/info/exclude
+```
+
+Cette commande n’efface pas les journaux. Si `pm2 status` n’affiche pas `rorisu`, vérifie le nom du processus avec `pm2 list` avant d’utiliser `pm2 restart`.
+
 ## Configuration
 
 Le fichier principal est `config.env`. Pour une installation manuelle :
@@ -67,17 +90,17 @@ Les options sont désactivées par défaut et se règlent en privé avec `.setva
 
 ### Mise à jour sur Render, Koyeb et Heroku
 
-Sur VPS/PM2, `.update now` récupère la branche Git, installe les dépendances puis redémarre PM2. Sur un hébergeur géré, le système de fichiers du conteneur n’est pas la source de déploiement : la commande demande à la plateforme de construire le commit GitHub courant. La réponse de mise à jour est envoyée en privé au propriétaire.
+Contrairement au VPS, ces plateformes construisent une nouvelle instance depuis le dépôt GitHub. `.update now` compare le commit déployé à `master`, puis demande à la plateforme de construire le commit GitHub courant; modifier le disque du conteneur ou exécuter `git pull` dans celui-ci ne suffit pas. Les messages d’état et d’erreur de la commande sont envoyés en privé au propriétaire.
 
-Configurez les variables suivantes dans les paramètres privés de la plateforme (ne publiez jamais les clés d’API) :
+Dans **Settings / Environment variables** de chaque service, définissez `UPDATE_PROVIDER` et les variables indiquées ci-dessous. Remplace les exemples par tes valeurs; les clés doivent être ajoutées comme secrets dans le tableau de bord, jamais dans Git, `config.env.example` ou un message WhatsApp.
 
-| Plateforme | `UPDATE_PROVIDER` | Variables secrètes / identifiant |
-| --- | --- | --- |
-| Render | `render` (détection automatique possible) | `RENDER_API_KEY`; l’identifiant est fourni par `RENDER_SERVICE_ID`. |
-| Koyeb | `koyeb` | `KOYEB_API_TOKEN` et `KOYEB_SERVICE_ID`. |
-| Heroku | `heroku` (détection automatique possible) | `HEROKU_API_KEY` et `HEROKU_APP_NAME`. Activez `heroku labs:enable runtime-dyno-build-metadata -a NOM_APP` pour fournir `HEROKU_BUILD_COMMIT`. |
+| Plateforme | Variables à configurer |
+| --- | --- |
+| Render | `UPDATE_PROVIDER=render`, `RENDER_API_KEY`. Render fournit `RENDER_SERVICE_ID` et `RENDER_GIT_COMMIT` à l’application. |
+| Koyeb | `UPDATE_PROVIDER=koyeb`, `KOYEB_API_TOKEN`, `KOYEB_SERVICE_ID` (identifiant du service, disponible dans le tableau de bord Koyeb). |
+| Heroku | `UPDATE_PROVIDER=heroku`, `HEROKU_API_KEY`, `HEROKU_APP_NAME`. Pour que la commande puisse comparer la version exécutée avec GitHub, active les métadonnées de build avec `heroku labs:enable runtime-dyno-build-metadata -a NOM_APP`; Heroku fournit alors `HEROKU_BUILD_COMMIT`. |
 
-La source GitHub doit être accessible à la plateforme, et l’application doit être configurée pour démarrer avec `npm start`. Les API des plateformes peuvent accepter la demande avant la fin du build; vérifiez ensuite le statut du déploiement dans leur tableau de bord. `AUTO_UPDATE=on` utilise le même mécanisme et déclenche un déploiement lorsque le propriétaire l’active.
+La source GitHub doit être accessible à la plateforme et son démarrage configuré avec `npm start`. L’API peut confirmer la demande avant la fin de la compilation : consulte ensuite la page **Deployments/Activity** de l’hébergeur pour vérifier que le déploiement est terminé. Pour activer les vérifications automatiques, configure `AUTO_UPDATE=on` dans les variables du service; lorsqu’une version est détectée, le bot demande un déploiement avec la même API.
 
 ## Commandes
 
@@ -106,6 +129,8 @@ virgules.
 | `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie/installe les mises à jour ou demande un déploiement géré, puis redémarre (propriétaire uniquement). |
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
+
+`.jid`, `.id` et `.getjid` sont des alias : envoie l’une de ces commandes dans une discussion pour obtenir son JID et celui de l’expéditeur; mentionne des membres pour afficher leurs JID, ou réponds à un message pour identifier son auteur (y compris un message envoyé par le bot).
 
 Le téléchargeur utilise `yt-dlp` installé localement. Les scripts d’installation VPS Debian/Ubuntu, Termux et Windows l’installent automatiquement. Sur les autres plateformes, installez yt-dlp depuis sa documentation officielle. Utilisez uniquement des médias publics que vous êtes autorisé à télécharger; aucune session, cookie ou connexion à un compte n’est utilisé. Les playlists ne sont pas téléchargées et la limite est de 20 Mo.
 
