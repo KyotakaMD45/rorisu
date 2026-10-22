@@ -1,9 +1,14 @@
 import { writeEnvVariable } from '../core/env.js';
 
 function parsePrefixes(input) {
-  const prefixes = input.split(',');
+  const normalized = input.toLowerCase();
+  if (['null', 'none', 'off'].includes(normalized)) return [];
+
+  const prefixes = input === ',' ? [','] : input.split(',');
   if (prefixes.length > 5
-    || prefixes.some((prefix) => !/^[^\s,]{1,8}$/u.test(prefix))
+    || prefixes.some((prefix) => !prefix
+      || /\s/u.test(prefix)
+      || Array.from(prefix).length > 8)
     || new Set(prefixes).size !== prefixes.length) {
     return null;
   }
@@ -22,6 +27,10 @@ export default {
 
     const input = args.join(' ').trim();
     if (!input) {
+      if (!config.prefixes.length) {
+        await sendReply('Aucun préfixe : les commandes connues peuvent être envoyées directement.');
+        return;
+      }
       await sendReply(`Préfixe${config.prefixes.length > 1 ? 's' : ''} actuel${config.prefixes.length > 1 ? 's' : ''} : ${config.prefixes.join(' / ')}`);
       return;
     }
@@ -32,10 +41,13 @@ export default {
       return;
     }
 
-    const value = prefixes.join(',');
+    const value = prefixes.length ? prefixes.join(',') : 'null';
     await writeEnvVariable('HANDLERS', value, envFilePath);
     process.env.HANDLERS = value;
-    await sendReply(`Préfixe${prefixes.length > 1 ? 's' : ''} enregistré${prefixes.length > 1 ? 's' : ''} : ${prefixes.join(' / ')}. Redémarrage du bot pour appliquer le changement.`);
+    const response = prefixes.length
+      ? `Préfixe${prefixes.length > 1 ? 's' : ''} enregistré${prefixes.length > 1 ? 's' : ''} : ${prefixes.join(' / ')}.`
+      : 'Préfixe désactivé : les commandes connues pourront être envoyées directement.';
+    await sendReply(`${response} Redémarrage du bot pour appliquer le changement.`);
     await lifecycle?.restart(chatId);
   },
 };

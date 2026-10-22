@@ -34,7 +34,9 @@ export function buildOwnerWelcome({
     `Session : ${sessionId}`,
     `Numéro : ${ownerNumber}`,
     '',
-    `Envoie *${prefix}menu* pour voir les commandes.`,
+    prefix
+      ? `Envoie *${prefix}menu* pour voir les commandes.`
+      : 'Envoie *menu* (sans préfixe) pour voir les commandes.',
     '',
     '⚙️ *Fonctionnalités*',
     `• Statuts vers le propriétaire : ${autoStatus}`,
@@ -57,9 +59,11 @@ export async function createConnection({
   enableAutoUpdater = true,
   notifyOwnerOnConnect = true,
   storage,
+  createSocket = makeWASocket,
+  loadAuthState = useMultiFileAuthState,
 }) {
   const authDirectory = path.resolve(projectDirectory, config.authDirectory);
-  const { state, saveCreds } = await useMultiFileAuthState(authDirectory);
+  const { state, saveCreds } = await loadAuthState(authDirectory);
   if (config.pairingMethod === 'qr' && !state.creds.registered && state.creds.pairingCode) {
     delete state.creds.pairingCode;
     delete state.creds.me;
@@ -154,7 +158,7 @@ export async function createConnection({
       const sendRead = await storage.get('feature:send_read') === true ? 'activés' : 'désactivés';
       const autoUpdate = await storage.get('feature:auto_update') === true ? 'activée' : 'désactivée';
       const antiDelete = await storage.get('feature:anti_delete') ? 'activée' : 'désactivée';
-      const prefix = config.prefixes?.[0] || '.';
+      const prefix = config.prefixes?.[0] || '';
       const welcome = buildOwnerWelcome({
         botName: config.botName,
         sessionId,
@@ -193,7 +197,7 @@ export async function createConnection({
   async function connect() {
     if (stopped) return;
 
-    socket = makeWASocket({
+    socket = createSocket({
       auth: state,
       logger,
       printQRInTerminal: false,

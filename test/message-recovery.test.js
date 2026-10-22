@@ -118,7 +118,7 @@ test('antidelete on/off active et désactive la destination privée par défaut'
   assert.match(replies[1], /désactivée/);
 });
 
-test('antivv reste désactivé pour protéger les médias à vue unique', async () => {
+test('antivv refuse l’activation et reste désactivé pour protéger les médias à vue unique', async () => {
   const values = new Map();
   const replies = [];
   const context = {
@@ -135,7 +135,8 @@ test('antivv reste désactivé pour protéger les médias à vue unique', async 
   assert.deepEqual(values.get('feature:anti_vv'), { enabled: false });
   await antiVvPlugin.execute({ ...context, args: ['off'] });
   assert.deepEqual(values.get('feature:anti_vv'), { enabled: false });
-  assert.match(replies[0], /désactivé/);
+  assert.match(replies[0], /ne peut pas être activé/);
+  assert.match(replies[1], /désactivé/);
 });
 
 test('antivv désactive un ancien réglage de transfert', async () => {
@@ -237,13 +238,13 @@ test('l’anti-suppression ne met pas en cache un média à vue unique', async (
   assert.deepEqual(sent, []);
 });
 
-test('vv exige une réponse à un média à vue unique', async () => {
+test('vv répond clairement sans tenter d’ouvrir un média à vue unique', async () => {
   const replies = [];
   await vvPlugin.execute({
-    quotedMessage: { key: { id: 'regular' }, message: { conversation: 'texte ordinaire' } },
     async sendReply(text) { replies.push(text); },
   });
-  assert.match(replies[0], /vue unique/);
+  assert.match(replies[0], /ne les ouvre/);
+  assert.match(replies[0], /renvoyer si elle est d’accord/);
 });
 
 test('vv ne réenvoie pas un média à vue unique cité', async () => {
@@ -272,9 +273,55 @@ test('vv ne réenvoie pas un média à vue unique cité', async () => {
     async sendReply(text) { replies.push(text); },
   });
 
-  assert.deepEqual(replies, [
-    'Les médias à vue unique ne sont pas enregistrés ni retransmis. Demande à la personne de te le renvoyer si elle est d’accord.',
-  ]);
+  assert.match(replies[0], /ne les ouvre, n’enregistre ni ne retransmet/);
+});
+
+test('delete reconnaît le message cité envoyé par le bot en privé', async () => {
+  const sent = [];
+  const ownerJid = '33612345678@s.whatsapp.net';
+  const handler = createMessageHandler({
+    plugins: new Map([['delete', deletePlugin]]),
+    config: { prefixes: ['.'], sudoNumbers: [] },
+    storage: {
+      async get() { return null; },
+      async set() {},
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const socket = {
+    user: { id: `${ownerJid.split('@')[0]}:4@s.whatsapp.net` },
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+
+  await handler({
+    type: 'notify',
+    messages: [{
+      key: { remoteJid: ownerJid, participant: ownerJid, id: 'delete-command' },
+      message: {
+        extendedTextMessage: {
+          text: '.delete',
+          contextInfo: {
+            stanzaId: 'bot-message',
+            participant: ownerJid,
+            quotedMessage: { conversation: 'Message à supprimer' },
+          },
+        },
+      },
+    }],
+  }, socket);
+
+  assert.deepEqual(sent, [{
+    chatId: ownerJid,
+    content: {
+      delete: {
+        remoteJid: ownerJid,
+        id: 'bot-message',
+        participant: ownerJid,
+        fromMe: true,
+      },
+    },
+  }]);
 });
 
 test('la détection de vue unique et les filtres de destination fonctionnent', () => {

@@ -1,6 +1,41 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { installUpdates } from '../core/git-updates.js';
 import { createUpdatePlugin } from '../plugins/update.js';
+
+test('installUpdates fusionne en avance rapide puis installe les dépendances', async () => {
+  const calls = [];
+  await installUpdates(
+    async (args) => {
+      calls.push(['git', args]);
+      return { stdout: '' };
+    },
+    async (command, args) => {
+      calls.push(['npm', command, args]);
+      return {};
+    },
+  );
+
+  assert.deepEqual(calls[0], ['git', ['status', '--porcelain']]);
+  assert.deepEqual(calls[1], ['git', ['merge', '--ff-only', '@{upstream}']]);
+  assert.equal(calls[2][0], 'npm');
+  assert.match(calls[2][2].join(' '), /ci --omit=dev/);
+});
+
+test('installUpdates refuse de fusionner quand le dépôt contient des changements locaux', async () => {
+  const calls = [];
+  await assert.rejects(
+    installUpdates(
+      async (args) => {
+        calls.push(args);
+        return { stdout: ' M core/connection.js\n' };
+      },
+      async () => assert.fail('npm ne doit pas être lancé si le dépôt est modifié.'),
+    ),
+    { code: 'ERR_DIRTY_WORKTREE' },
+  );
+  assert.deepEqual(calls, [['status', '--porcelain']]);
+});
 
 function createContext({ args = [], isSudo = true, lifecycle = {}, logger } = {}) {
   const replies = [];

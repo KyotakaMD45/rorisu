@@ -1,6 +1,6 @@
 import { normalizeNumber } from '../config.js';
 import { WAMessageStubType, downloadMediaMessage } from '@whiskeysockets/baileys';
-import { findParticipant, isGroupAdmin } from './group-utils.js';
+import { findParticipant, isGroupAdmin, normalizeJid } from './group-utils.js';
 import { unwrapMessage } from './message-content.js';
 import {
   cacheMessage,
@@ -134,6 +134,13 @@ export function createMessageHandler({
         const isSudo = message.key.fromMe || config.sudoNumbers.includes(senderNumber);
         const text = getMessageText(message).trim();
         const prefix = config.prefixes.find((candidate) => text.startsWith(candidate));
+        const commandText = prefix ? text.slice(prefix.length).trim() : text;
+        const firstWord = commandText.split(/\s+/)[0]?.toLowerCase();
+        const commandName = prefix
+          ? firstWord
+          : config.prefixes.length === 0 && plugins.has(firstWord)
+            ? firstWord
+            : undefined;
         if (chatId.endsWith('@g.us')
           && !message.key.fromMe
           && await storage.get(`group:${chatId}:antilink`) === true
@@ -173,7 +180,7 @@ export function createMessageHandler({
             }
           }
         }
-        if (chatId.endsWith('@g.us') && !message.key.fromMe && !prefix) {
+        if (chatId.endsWith('@g.us') && !message.key.fromMe && !prefix && !commandName) {
           const filters = await storage.get(`group:${chatId}:filters`) || {};
           const normalizedText = text.toLowerCase();
           const match = Object.entries(filters)
@@ -182,9 +189,6 @@ export function createMessageHandler({
             await socket.sendMessage(chatId, { text: match[1] });
           }
         }
-        const commandName = prefix && prefix.length > 0
-          ? text.slice(prefix.length).trim().split(/\s+/)[0]?.toLowerCase()
-          : undefined;
         const afkKey = `afk:${senderNumber}`;
         const senderAfk = senderNumber ? await storage.get(afkKey) : null;
 
@@ -217,10 +221,10 @@ export function createMessageHandler({
           }
         }
 
-        if (!prefix || prefix.length === 0 || text.length === prefix.length) continue;
+        if (!commandName) continue;
 
-        const [, ...args] = text.slice(prefix.length).trim().split(/\s+/);
-        const plugin = plugins.get(commandName?.toLowerCase());
+        const [, ...args] = commandText.split(/\s+/);
+        const plugin = plugins.get(commandName);
         if (!plugin) continue;
 
         if (chatId.endsWith('@g.us') && !isSudo && plugin.name !== 'rori') {
@@ -238,12 +242,17 @@ export function createMessageHandler({
         }
 
         const contextInfo = getContextInfo(message);
+        const quotedParticipant = contextInfo.participant;
+        const quotedFromMe = Boolean(quotedParticipant
+          && socket.user?.id
+          && normalizeJid(quotedParticipant) === normalizeJid(socket.user.id));
         const quotedMessage = contextInfo.quotedMessage
           ? {
             key: {
               remoteJid: chatId,
               id: contextInfo.stanzaId,
-              participant: contextInfo.participant,
+              participant: quotedParticipant,
+              fromMe: quotedFromMe,
             },
             message: contextInfo.quotedMessage,
           }

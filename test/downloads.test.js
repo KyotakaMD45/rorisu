@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseSupportedMediaUrl } from '../core/downloads.js';
+import {
+  buildDownloaderArguments,
+  parseSupportedMediaUrl,
+} from '../core/downloads.js';
 import downloadPlugin from '../plugins/download.js';
+
+test('le téléchargeur interdit les playlists sans interrompre un média unique', () => {
+  const url = 'https://www.facebook.com/share/r/1K7cs4c38L/';
+  const args = buildDownloaderArguments(url, 'media.%(ext)s');
+
+  assert.ok(args.includes('--no-playlist'));
+  assert.equal(args.includes('--max-downloads'), false);
+  assert.equal(args.at(-1), url);
+});
 
 test('les URL publiques des plateformes prises en charge sont validées', () => {
   for (const url of [

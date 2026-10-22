@@ -1,6 +1,7 @@
 const fallbackAliases = {
   gemini: ['ai'],
   image: ['imagine'],
+  jid: ['id', 'getjid'],
   list: ['help', 'aide', 'menu'],
 };
 
@@ -14,7 +15,7 @@ export default {
       ['🔄 CONVERSION', ['sticker']],
       ['✨ IA & MÉDIAS', ['download', 'gemini', 'image', 'delete', 'vv']],
       ['👥 GROUPE', ['antilink', 'antiword', 'filter', 'ginfo', 'greet', 'group', 'tag', 'warn']],
-      ['🧰 OUTILS', ['afk', 'poll', 'react', 'rori']],
+      ['🧰 OUTILS', ['afk', 'jid', 'poll', 'react', 'rori']],
       ['🤖 BOT & COMPTE', ['alive', 'list', 'ping']],
       ['🔐 PROPRIÉTAIRE', ['allvar', 'antivv', 'delvar', 'getvar', 'prefix', 'restart', 'setsudo', 'setvar', 'shutdown', 'update']],
     ];

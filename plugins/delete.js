@@ -82,6 +82,9 @@ export default {
 
     const key = quotedMessage?.key;
     const isOwnMessage = key.fromMe === true
+      || (key.participant
+        && socket.user?.id
+        && normalizeJid(key.participant) === normalizeJid(socket.user.id))
       || (key.participant && normalizeJid(key.participant) === normalizeJid(senderJid));
     if (!isOwnMessage) {
       if (!isGroup) {

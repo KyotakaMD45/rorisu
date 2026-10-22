@@ -25,6 +25,7 @@ import ginfoPlugin from '../plugins/ginfo.js';
 import reactPlugin from '../plugins/react.js';
 import deletePlugin from '../plugins/delete.js';
 import alivePlugin from '../plugins/alive.js';
+import jidPlugin from '../plugins/jid.js';
 import { createAutoUpdater } from '../core/auto-update.js';
 import { checkForUpdates } from '../core/git-updates.js';
 import { readEnvVariables, writeEnvVariable } from '../core/env.js';
@@ -102,7 +103,7 @@ test('charge les options depuis la configuration et migre les anciennes valeurs 
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'antidelete', 'antivv', 'vv', 'update', 'setsudo', 'prefix', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'download', 'tiktok', 'insta', 'fb', 'youtube', 'yt', 'gemini', 'ai', 'image', 'imagine']) {
+  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'antidelete', 'antivv', 'vv', 'update', 'setsudo', 'prefix', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'jid', 'id', 'getjid', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'download', 'tiktok', 'insta', 'fb', 'youtube', 'yt', 'gemini', 'ai', 'image', 'imagine']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
   assert.equal(plugins.get('stop').name, 'filter');
@@ -187,6 +188,7 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
   assert.match(reply, /RORISU/);
   assert.match(reply, /Préfixe : ! \/ \./);
   assert.match(reply, /!ping/);
+  assert.match(reply, /!jid \/ !id \/ !getjid/);
   assert.match(reply, /!sticker/);
   assert.match(reply, /!ai/);
   assert.match(reply, /!image/);
@@ -199,6 +201,27 @@ test('le menu liste simplement les commandes sans afficher les réglages automat
   assert.match(reply, /!shutdown/);
   assert.match(reply, /!download/);
   assert.doesNotMatch(reply, /AUTO_STATUS|SEND_READ|AUTO_UPDATE|—/);
+});
+
+test('jid affiche les identifiants de la discussion et du message cité', async () => {
+  const replies = [];
+  await jidPlugin.execute({
+    chatId: '12345-67890@g.us',
+    senderJid: '33612345678:4@s.whatsapp.net',
+    mentions: ['33687654321@s.whatsapp.net'],
+    quotedMessage: {
+      key: {
+        remoteJid: '12345-67890@g.us',
+        participant: '33687654321@s.whatsapp.net',
+      },
+    },
+    async sendReply(text) { replies.push(text); },
+  });
+
+  assert.match(replies[0], /Discussion : 12345-67890@g\.us/);
+  assert.match(replies[0], /Expéditeur : 33612345678:4@s\.whatsapp\.net/);
+  assert.match(replies[0], /Mention 1 : 33687654321@s\.whatsapp\.net/);
+  assert.match(replies[0], /Message cité : 33687654321@s\.whatsapp\.net/);
 });
 
 test('le message de connexion privé inclut la session, le numéro et l’état des fonctions', () => {
@@ -222,6 +245,23 @@ test('le message de connexion privé inclut la session, le numéro et l’état 
   assert.match(welcome, /Numéro : 22505320662/);
   assert.match(welcome, /Envoie \*\.menu\*/);
   assert.match(welcome, /Mise à jour automatique : activée/);
+});
+
+test('le message de connexion indique les commandes sans préfixe', () => {
+  const welcome = buildOwnerWelcome({
+    botName: 'RORISU',
+    sessionId: '0',
+    ownerNumber: '33612345678',
+    prefix: '',
+    autoStatus: 'désactivé',
+    autoStatusView: 'désactivée',
+    sendRead: 'désactivés',
+    autoUpdate: 'désactivée',
+    antiDelete: 'désactivée',
+    antiVv: 'désactivée',
+    gemini: 'désactivé',
+  });
+  assert.match(welcome, /Envoie \*menu\* \(sans préfixe\)/);
 });
 
 test('les journaux Signal masquent les sessions et ignorent les avertissements répétitifs', () => {
@@ -678,6 +718,41 @@ test('antiword supprime un mot interdit envoyé par un membre non-admin', async 
   ]);
 });
 
+test('les commandes reconnues fonctionnent sans préfixe, sans traiter les messages ordinaires', async () => {
+  const executed = [];
+  const plugin = {
+    name: 'ping',
+    async execute({ args }) { executed.push(args); },
+  };
+  const handler = createMessageHandler({
+    plugins: new Map([['ping', plugin]]),
+    config: { prefixes: [], sudoNumbers: [] },
+    storage: {
+      async get() { return null; },
+      async set() {},
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const socket = { async sendMessage() {} };
+
+  await handler({
+    type: 'notify',
+    messages: [
+      {
+        key: { remoteJid: '33612345678@s.whatsapp.net', fromMe: true, id: 'plain-command' },
+        message: { conversation: 'ping test' },
+      },
+      {
+        key: { remoteJid: '33612345678@s.whatsapp.net', fromMe: true, id: 'ordinary-message' },
+        message: { conversation: 'bonjour tout le monde' },
+      },
+    ],
+  }, socket);
+
+  assert.deepEqual(executed, [['test']]);
+});
+
 test('tagall est limité aux administrateurs et aux petits groupes', async () => {
   const sent = [];
   const socket = {
@@ -882,6 +957,7 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
     ['rev-parse', 'HEAD'],
     ['rev-parse', 'origin/main'],
     ['log', '--format=%h%x09%s', 'HEAD..origin/main'],
+    ['status', '--porcelain'],
     ['merge', '--ff-only', '@{upstream}'],
   ]);
   assert.equal(npmCalls.length, 1);

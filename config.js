@@ -7,29 +7,48 @@ dotenv.config({ path: path.join(projectDirectory, 'config.env') });
 dotenv.config({ path: path.join(projectDirectory, '.env') });
 
 // Configure le fuseau horaire avant toute création de date ou de connexion.
-process.env.TZ = process.env.TZ || 'Europe/Paris';
+process.env.TZ = process.env.TZ || process.env.TIMEZONE || 'Europe/Paris';
 
 const splitList = (value) => (value || '')
   .split(',')
   .map((item) => item.trim())
   .filter(Boolean);
 
+export function parseHandlerPrefixes(value) {
+  const normalized = String(value ?? '.').trim();
+  if (!normalized || /^(null|none|off)$/i.test(normalized)) return [];
+  if (normalized === ',') return [','];
+  const legacyCharacterClass = normalized.match(/^\^\[([^\]]+)\]$/u);
+  if (legacyCharacterClass) {
+    return Array.from(legacyCharacterClass[1].replace(/\\(.)/gu, '$1'));
+  }
+  return splitList(normalized);
+}
+
+export function normalizeApiMode(value) {
+  const mode = String(value ?? 'false').trim().toLowerCase();
+  if (mode === 'true' || mode === 'both') return 'true';
+  if (mode === 'only' || mode === 'api') return 'only';
+  if (mode === 'false' || mode === 'bot' || !mode) return 'false';
+  return mode;
+}
+
 // Ne conserve que les chiffres pour comparer les numéros aux identifiants WhatsApp.
 const normalizeNumber = (value) => String(value || '').replace(/\D/g, '');
 
 const environmentConfig = Object.freeze({
   BOT_NAME: process.env.BOT_NAME?.trim() || 'RORISU',
-  HANDLERS: splitList(process.env.HANDLERS || '.'),
+  HANDLERS: parseHandlerPrefixes(process.env.HANDLERS ?? process.env.PREFIX ?? '.'),
   SUDO: splitList(process.env.SUDO).map(normalizeNumber).filter(Boolean),
   PAIRING_METHOD: process.env.PAIRING_METHOD?.trim().toLowerCase() || 'qr',
   SESSION_ID: splitList(process.env.SESSION_ID || '0'),
   AUTH_DIRECTORY: process.env.AUTH_DIRECTORY?.trim() || 'auth_info_baileys',
   DATABASE_URL: process.env.DATABASE_URL?.trim() || '',
   STORAGE_FILE: process.env.STORAGE_FILE?.trim() || 'data/store.json',
-  LANGUAGE: process.env.LANGUAGE?.trim() || 'fr',
-  TZ: process.env.TZ,
+  LANGUAGE: process.env.LANGUAGE?.trim() || process.env.BOT_LANG?.trim() || 'fr',
+  TZ: process.env.TZ || process.env.TIMEZONE,
   WARN_LIMIT: Number(process.env.WARN_LIMIT || 3),
-  API_MODE: process.env.API_MODE?.trim().toLowerCase() || 'false',
+  API_MODE: normalizeApiMode(process.env.API_MODE),
   API_KEY: process.env.API_KEY?.trim() || '',
   PORT: Number(process.env.PORT || 3000),
   API_WEBHOOK_URL: process.env.API_WEBHOOK_URL?.trim() || '',
@@ -127,7 +146,7 @@ if (!Number.isInteger(environmentConfig.GEMINI_MAX_MEDIA_BYTES)
 
 export const config = Object.freeze({
   botName: environmentConfig.BOT_NAME,
-  prefixes: environmentConfig.HANDLERS.length ? environmentConfig.HANDLERS : ['.'],
+  prefixes: environmentConfig.HANDLERS,
   sudoNumbers: environmentConfig.SUDO,
   pairingMethod: environmentConfig.PAIRING_METHOD,
   warnLimit: environmentConfig.WARN_LIMIT,

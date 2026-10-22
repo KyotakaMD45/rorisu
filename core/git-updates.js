@@ -44,17 +44,23 @@ export async function checkForUpdates(executeGit = runGit) {
   return { upstream, commits };
 }
 
-export function installUpdates(executeGit = runGit, executeNpm = execFileAsync) {
-  return executeGit(['merge', '--ff-only', '@{upstream}']).then(async () => {
-    const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
-    const args = process.platform === 'win32'
-      ? ['/d', '/s', '/c', 'npm ci --omit=dev']
-      : ['ci', '--omit=dev'];
-    return executeNpm(command, args, {
-      cwd: projectDirectory,
-      env: { ...process.env, npm_config_fund: 'false', npm_config_audit: 'false' },
-      timeout: 300_000,
-      windowsHide: true,
-    });
+export async function installUpdates(executeGit = runGit, executeNpm = execFileAsync) {
+  const { stdout: statusOutput } = await executeGit(['status', '--porcelain']);
+  if (statusOutput?.trim()) {
+    const error = new Error('Des modifications locales empêchent une mise à jour sûre.');
+    error.code = 'ERR_DIRTY_WORKTREE';
+    throw error;
+  }
+
+  await executeGit(['merge', '--ff-only', '@{upstream}']);
+  const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
+  const args = process.platform === 'win32'
+    ? ['/d', '/s', '/c', 'npm ci --omit=dev']
+    : ['ci', '--omit=dev'];
+  return executeNpm(command, args, {
+    cwd: projectDirectory,
+    env: { ...process.env, npm_config_fund: 'false', npm_config_audit: 'false' },
+    timeout: 300_000,
+    windowsHide: true,
   });
 }

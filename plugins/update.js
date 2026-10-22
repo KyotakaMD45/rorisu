@@ -49,6 +49,10 @@ export function createUpdatePlugin({
         await applyUpdates();
       } catch (error) {
         logger.error({ err: error }, 'Échec de l’installation des mises à jour Git.');
+        if (error.code === 'ERR_DIRTY_WORKTREE') {
+          await sendReply('Mise à jour bloquée : des changements locaux existent. Sauvegarde-les ou mets-les de côté, puis réessaie.');
+          return;
+        }
         await sendReply('La mise à jour a échoué. Vérifie les changements locaux et consulte les journaux.');
         return;
       }

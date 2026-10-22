@@ -9,13 +9,21 @@ export default {
     }
 
     const action = args[0]?.toLowerCase();
-    if (args.length > 1 || (action && !['off', 'info'].includes(action))) {
+    if (action === 'on' && args.length > 1) {
       await storage.set('feature:anti_vv', { enabled: false });
       await sendReply('Le transfert des médias à vue unique est désactivé pour respecter leur confidentialité.');
       return;
     }
+    if (args.length > 1 || (action && !['on', 'off', 'info'].includes(action))) {
+      await sendReply('Utilisation : .antivv [info|off]. Le transfert des médias à vue unique reste désactivé.');
+      return;
+    }
 
-    await storage.set('feature:anti_vv', { enabled: false });
-    await sendReply('Anti-VV : désactivé. Les médias à vue unique ne sont ni enregistrés ni retransmis.');
+    if (action !== 'info') {
+      await storage.set('feature:anti_vv', { enabled: false });
+    }
+    await sendReply(action === 'on'
+      ? 'Le transfert anti-VV ne peut pas être activé : les médias à vue unique restent protégés.'
+      : 'Anti-VV : désactivé. Les médias à vue unique ne sont ni enregistrés ni retransmis.');
   },
 };

@@ -61,20 +61,28 @@ Les options sont désactivées par défaut et se règlent en privé avec `.setva
 
 ## Commandes
 
-Le préfixe par défaut est `.`; il se règle avec `HANDLERS`.
+Le préfixe par défaut est `.`; il se règle avec `HANDLERS`. Les anciennes
+configurations Levanter utilisant `PREFIX=^[.,!]` sont aussi reconnues lorsque
+`HANDLERS` n’est pas défini. `BOT_LANG` et `TIMEZONE` sont acceptés comme alias
+de compatibilité pour `LANGUAGE` et `TZ`; `API_MODE=both` et `API_MODE=api`
+correspondent respectivement aux modes `true` et `only`. `.prefix null` ou
+`.setvar HANDLERS = null` désactive les préfixes : les commandes reconnues
+peuvent alors être envoyées directement (par exemple `ping`). Les symboles et
+emoji sont acceptés comme préfixes; plusieurs préfixes sont séparés par des
+virgules.
 
 | Commandes | Description |
 | --- | --- |
 | `.list`, `.alive`, `.ping` | Aide et état du bot. |
 | `.gemini`, `.ai`, `.image`, `.imagine` | Assistant multimodal et génération d’images. |
 | `.download`, `.yt`, `.youtube`, `.tiktok`, `.insta`, `.fb` | Télécharge des médias publics pris en charge (yt-dlp requis; limite 20 Mo). |
-| `.sticker`, `.poll`, `.afk`, `.react`, `.dlt` | Outils de discussion; `.dlt` supprime le message cité avec les permissions nécessaires. |
+| `.sticker`, `.poll`, `.afk`, `.react`, `.jid` (`.id`, `.getjid`), `.dlt` | Outils de discussion; `.jid` affiche les identifiants de la discussion, de l’expéditeur, des mentions et du message cité; `.dlt` supprime le message cité avec les permissions nécessaires. |
 | `.delete p/g/JID/off`, `.antidelete`, `.vv`, `.antivv off` | Récupération anti-suppression des messages ordinaires et information sur la protection des médias à vue unique. Limite média anti-suppression : 20 Mo. |
 | `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
 | `.setsudo [list|add <numéro>|remove <numéro>]` | Gère les propriétaires du bot; le dernier propriétaire ne peut pas être retiré. |
-| `.prefix [préfixe]` | Affiche ou modifie le préfixe du bot (propriétaire uniquement; redémarrage automatique). Plusieurs préfixes peuvent être séparés par des virgules. |
+| `.prefix [préfixe]` | Affiche ou modifie le préfixe du bot (propriétaire uniquement; redémarrage automatique). Les symboles et emoji sont acceptés; plusieurs préfixes sont séparés par des virgules; `null` désactive les préfixes. |
 | `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie les mises à jour ou les installe, puis redémarre (propriétaire uniquement). |
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.

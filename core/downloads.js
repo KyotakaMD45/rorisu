@@ -52,22 +52,25 @@ function sanitizedDownloaderError(stderr) {
     .slice(-500);
 }
 
+export function buildDownloaderArguments(url, outputTemplate) {
+  return [
+    '--ignore-config',
+    '--no-cache-dir',
+    '--no-playlist',
+    '--no-progress',
+    '--max-filesize', '20M',
+    '--format', 'best[ext=mp4]/best',
+    '--output', outputTemplate,
+    '--',
+    url,
+  ];
+}
+
 function runDownloader(url, outputDirectory) {
   return new Promise((resolve, reject) => {
     const executable = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
     const outputTemplate = path.join(outputDirectory, 'media.%(ext)s');
-    const child = spawn(executable, [
-      '--ignore-config',
-      '--no-cache-dir',
-      '--no-playlist',
-      '--no-progress',
-      '--max-downloads', '1',
-      '--max-filesize', '20M',
-      '--format', 'best[ext=mp4]/best',
-      '--output', outputTemplate,
-      '--',
-      url.href,
-    ], {
+    const child = spawn(executable, buildDownloaderArguments(url.href, outputTemplate), {
       windowsHide: true,
       stdio: ['ignore', 'ignore', 'pipe'],
     });
