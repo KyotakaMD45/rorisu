@@ -25,6 +25,10 @@ export function createUpdatePlugin({
         status = await checkUpdates();
       } catch (error) {
         logger.error({ err: error }, 'Impossible de vérifier les mises à jour Git.');
+        if (error.code === 'ERR_NOT_GIT_REPOSITORY') {
+          await sendReply('Cette installation vient d’une archive ZIP et ne contient pas Git. `.update` ne peut pas fonctionner ainsi : réinstalle le bot avec la dernière commande Windows du README, qui clone le dépôt Git.');
+          return;
+        }
         await sendReply('Impossible de vérifier les mises à jour. Vérifie le dépôt Git et consulte les journaux.');
         return;
       }

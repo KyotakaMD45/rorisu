@@ -15,9 +15,29 @@ export function runGit(args) {
   });
 }
 
+function throwGitRepositoryError(error) {
+  const detail = `${error.stderr || ''} ${error.message || ''}`.toLowerCase();
+  if (detail.includes('not a git repository') || error.code === 'ENOTDIR') {
+    const repositoryError = new Error(
+      'Cette installation ne contient pas de dépôt Git. Réinstalle le bot depuis un clone Git.',
+    );
+    repositoryError.code = 'ERR_NOT_GIT_REPOSITORY';
+    throw repositoryError;
+  }
+  throw error;
+}
+
+async function executeRepositoryGit(executeGit, args) {
+  try {
+    return await executeGit(args);
+  } catch (error) {
+    throwGitRepositoryError(error);
+  }
+}
+
 export async function checkForUpdates(executeGit = runGit) {
-  await executeGit(['fetch']);
-  const { stdout: upstreamOutput } = await executeGit([
+  await executeRepositoryGit(executeGit, ['fetch']);
+  const { stdout: upstreamOutput } = await executeRepositoryGit(executeGit, [
     'rev-parse',
     '--abbrev-ref',
     '--symbolic-full-name',
@@ -26,13 +46,13 @@ export async function checkForUpdates(executeGit = runGit) {
   const upstream = upstreamOutput.trim();
   if (!upstream) throw new Error('Aucune branche distante de suivi n’est configurée.');
 
-  const { stdout: localOutput } = await executeGit(['rev-parse', 'HEAD']);
-  const { stdout: remoteOutput } = await executeGit(['rev-parse', upstream]);
+  const { stdout: localOutput } = await executeRepositoryGit(executeGit, ['rev-parse', 'HEAD']);
+  const { stdout: remoteOutput } = await executeRepositoryGit(executeGit, ['rev-parse', upstream]);
   if (localOutput.trim() === remoteOutput.trim()) {
     return { upstream, commits: [] };
   }
 
-  const { stdout: logOutput } = await executeGit([
+  const { stdout: logOutput } = await executeRepositoryGit(executeGit, [
     'log',
     '--format=%h%x09%s',
     `HEAD..${upstream}`,
@@ -45,14 +65,14 @@ export async function checkForUpdates(executeGit = runGit) {
 }
 
 export async function installUpdates(executeGit = runGit, executeNpm = execFileAsync) {
-  const { stdout: statusOutput } = await executeGit(['status', '--porcelain']);
+  const { stdout: statusOutput } = await executeRepositoryGit(executeGit, ['status', '--porcelain']);
   if (statusOutput?.trim()) {
     const error = new Error('Des modifications locales empêchent une mise à jour sûre.');
     error.code = 'ERR_DIRTY_WORKTREE';
     throw error;
   }
 
-  await executeGit(['merge', '--ff-only', '@{upstream}']);
+  await executeRepositoryGit(executeGit, ['merge', '--ff-only', '@{upstream}']);
   const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
   const args = process.platform === 'win32'
     ? ['/d', '/s', '/c', 'npm ci --omit=dev']

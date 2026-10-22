@@ -24,6 +24,10 @@ curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/mast
 irm https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.ps1 | iex
 ```
 
+L’installateur Windows installe Git et clone le dépôt pour permettre `.update`.
+Les anciennes installations Windows déployées depuis une archive ZIP ne
+contiennent pas les métadonnées Git ; elles doivent être migrées vers un clone.
+
 Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Le bot est géré par PM2 et redémarre avec le VPS. L’installation affiche son état sans afficher les conversations; les journaux techniques et le QR ne sont consultables que sur demande avec `pm2 logs rorisu-baileys-bot`. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
 
 ## Configuration

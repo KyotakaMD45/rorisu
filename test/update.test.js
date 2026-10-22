@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { installUpdates } from '../core/git-updates.js';
+import { checkForUpdates, installUpdates } from '../core/git-updates.js';
 import { createUpdatePlugin } from '../plugins/update.js';
 
 test('installUpdates fusionne en avance rapide puis installe les dépendances', async () => {
@@ -35,6 +35,21 @@ test('installUpdates refuse de fusionner quand le dépôt contient des changemen
     { code: 'ERR_DIRTY_WORKTREE' },
   );
   assert.deepEqual(calls, [['status', '--porcelain']]);
+});
+
+test('update explique les installations Windows téléchargées en ZIP', async () => {
+  const checkUpdates = () => checkForUpdates(async () => {
+    throw new Error('Command failed: git fetch\nfatal: not a git repository');
+  });
+  const plugin = createUpdatePlugin({
+    checkUpdates,
+  });
+  const context = createContext();
+
+  await plugin.execute(context);
+
+  assert.match(context.replies[0], /archive ZIP/);
+  assert.match(context.replies[0], /dernière commande Windows du README/);
 });
 
 function createContext({ args = [], isSudo = true, lifecycle = {}, logger } = {}) {
