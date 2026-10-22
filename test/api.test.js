@@ -211,6 +211,27 @@ test('le webhook transmet les messages entrants avec la clé API', async () => {
       },
     });
 
+    assert.equal(received.headers['x-api-key'], apiKey);
+    assert.deepEqual(received.body, {
+      session: '0',
+      id: 'incoming-message-id',
+      from: '33612345678@s.whatsapp.net',
+      sender: '33612345678@s.whatsapp.net',
+      pushName: 'Alice',
+      isGroup: false,
+      timestamp: 1_700_000_000,
+      type: 'text',
+      text: 'Bonjour',
+      quoted: null,
+    });
+  } finally {
+    await api.close();
+    await new Promise((resolve, reject) => {
+      webhook.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
     test('le webhook expose les médias reçus en cache et conserve le contexte cité', async () => {
       const received = [];
       const webhook = createServer(async (request, response) => {
@@ -362,26 +383,6 @@ test('le webhook transmet les messages entrants avec la clé API', async () => {
         await api.close();
       }
     });
-    assert.equal(received.headers['x-api-key'], apiKey);
-    assert.deepEqual(received.body, {
-      session: '0',
-      id: 'incoming-message-id',
-      from: '33612345678@s.whatsapp.net',
-      sender: '33612345678@s.whatsapp.net',
-      pushName: 'Alice',
-      isGroup: false,
-      timestamp: 1_700_000_000,
-      type: 'text',
-      text: 'Bonjour',
-      quoted: null,
-    });
-  } finally {
-    await api.close();
-    await new Promise((resolve, reject) => {
-      webhook.close((error) => (error ? reject(error) : resolve()));
-    });
-  }
-});
 
 test('l’API ne met pas en cache et ne transmet pas les médias à vue unique', async () => {
   let webhookCalls = 0;
