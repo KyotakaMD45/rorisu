@@ -938,9 +938,8 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
     async executeNpm(command, args) { npmCalls.push([command, args]); },
     async executeGit(args) {
       calls.push(args);
-      if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return { stdout: 'origin/main\n' };
-      if (args[1] === 'HEAD') return { stdout: 'old\n' };
-      if (args[1] === 'origin/main') return { stdout: 'new\n' };
+      if (args[0] === 'rev-parse' && args[1] === 'HEAD') return { stdout: 'old\n' };
+      if (args[0] === 'rev-parse') return { stdout: 'new\n' };
       if (args[0] === 'log') return { stdout: 'abc123\tCorrection importante\n' };
       return { stdout: '' };
     },
@@ -952,13 +951,13 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
   values.set('feature:auto_update', true);
   await updater.checkNow();
   assert.deepEqual(calls, [
-    ['fetch'],
-    ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+    ['remote', 'set-url', 'origin', 'https://github.com/KyotakaMD45/rorisu.git'],
+    ['fetch', '--prune', 'origin'],
     ['rev-parse', 'HEAD'],
-    ['rev-parse', 'origin/main'],
-    ['log', '--format=%h%x09%s', 'HEAD..origin/main'],
+    ['rev-parse', '--verify', 'refs/remotes/origin/master'],
+    ['log', '--format=%h%x09%s', 'HEAD..origin/master'],
     ['status', '--porcelain'],
-    ['merge', '--ff-only', '@{upstream}'],
+    ['merge', '--ff-only', 'origin/master'],
   ]);
   assert.equal(npmCalls.length, 1);
   assert.deepEqual(npmCalls[0][1], process.platform === 'win32'
@@ -982,7 +981,6 @@ test('le vérificateur automatique contrôle GitHub dès la connexion', async ()
     async executeGit(args) {
       calls.push(args);
       if (args[0] === 'fetch') resolveFirstFetch();
-      if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return { stdout: 'origin/main\n' };
       return { stdout: 'same\n' };
     },
   });
@@ -991,14 +989,16 @@ test('le vérificateur automatique contrôle GitHub dès la connexion', async ()
   await firstFetch;
   updater.stop();
 
-  assert.deepEqual(calls[0], ['fetch']);
+  assert.deepEqual(calls.slice(0, 2), [
+    ['remote', 'set-url', 'origin', 'https://github.com/KyotakaMD45/rorisu.git'],
+    ['fetch', '--prune', 'origin'],
+  ]);
 });
 
 test('le vérificateur Git liste les commits disponibles sans les installer', async () => {
   const calls = [];
   const status = await checkForUpdates(async (args) => {
     calls.push(args);
-    if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return { stdout: 'origin/main\n' };
     if (args[0] === 'rev-parse' && args[1] === 'HEAD') return { stdout: 'local\n' };
     if (args[0] === 'rev-parse') return { stdout: 'remote\n' };
     if (args[0] === 'log') return { stdout: 'def456\tCorrection\nabc123\tNouvelle commande\n' };
@@ -1006,9 +1006,13 @@ test('le vérificateur Git liste les commits disponibles sans les installer', as
   });
 
   assert.deepEqual(status, {
-    upstream: 'origin/main',
+    upstream: 'origin/master',
     commits: ['def456\tCorrection', 'abc123\tNouvelle commande'],
   });
+  assert.deepEqual(calls.slice(0, 2), [
+    ['remote', 'set-url', 'origin', 'https://github.com/KyotakaMD45/rorisu.git'],
+    ['fetch', '--prune', 'origin'],
+  ]);
   assert.equal(calls.some(([command]) => command === 'merge'), false);
 });
 

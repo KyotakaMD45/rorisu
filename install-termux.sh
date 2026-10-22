@@ -30,6 +30,9 @@ node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)
 
 printf 'Téléchargement du bot...\n'
 git clone --depth 1 --branch master "$repository_url" "$install_dir"
+git -C "$install_dir" remote set-url origin "$repository_url"
+git -C "$install_dir" branch --set-upstream-to=origin/master master
+git -C "$install_dir" rev-parse --verify refs/remotes/origin/master >/dev/null
 
 read -r -p "Numéro WhatsApp du propriétaire (indicatif international, sans +) : " sudo_number </dev/tty \
   || fail "impossible de lire le numéro WhatsApp depuis le terminal."

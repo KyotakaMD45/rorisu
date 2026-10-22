@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const execFileAsync = promisify(execFile);
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const repositoryUrl = 'https://github.com/KyotakaMD45/rorisu.git';
+const upstream = 'origin/master';
 
 export function runGit(args) {
   return execFileAsync('git', args, {
@@ -36,18 +38,15 @@ async function executeRepositoryGit(executeGit, args) {
 }
 
 export async function checkForUpdates(executeGit = runGit) {
-  await executeRepositoryGit(executeGit, ['fetch']);
-  const { stdout: upstreamOutput } = await executeRepositoryGit(executeGit, [
-    'rev-parse',
-    '--abbrev-ref',
-    '--symbolic-full-name',
-    '@{upstream}',
-  ]);
-  const upstream = upstreamOutput.trim();
-  if (!upstream) throw new Error('Aucune branche distante de suivi n’est configurée.');
+  await executeRepositoryGit(executeGit, ['remote', 'set-url', 'origin', repositoryUrl]);
+  await executeRepositoryGit(executeGit, ['fetch', '--prune', 'origin']);
 
   const { stdout: localOutput } = await executeRepositoryGit(executeGit, ['rev-parse', 'HEAD']);
-  const { stdout: remoteOutput } = await executeRepositoryGit(executeGit, ['rev-parse', upstream]);
+  const { stdout: remoteOutput } = await executeRepositoryGit(executeGit, [
+    'rev-parse',
+    '--verify',
+    `refs/remotes/${upstream}`,
+  ]);
   if (localOutput.trim() === remoteOutput.trim()) {
     return { upstream, commits: [] };
   }
@@ -72,7 +71,7 @@ export async function installUpdates(executeGit = runGit, executeNpm = execFileA
     throw error;
   }
 
-  await executeRepositoryGit(executeGit, ['merge', '--ff-only', '@{upstream}']);
+  await executeRepositoryGit(executeGit, ['merge', '--ff-only', upstream]);
   const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
   const args = process.platform === 'win32'
     ? ['/d', '/s', '/c', 'npm ci --omit=dev']

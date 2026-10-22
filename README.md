@@ -27,6 +27,8 @@ irm https://raw.githubusercontent.com/KyotakaMD45/rorisu/master/install.ps1 | ie
 L’installateur Windows installe Git et clone le dépôt pour permettre `.update`.
 Les anciennes installations Windows déployées depuis une archive ZIP ne
 contiennent pas les métadonnées Git ; elles doivent être migrées vers un clone.
+Les installateurs configurent `origin/master` comme source explicite des mises
+à jour. Les journaux PM2 sont ignorés par Git afin qu’ils ne bloquent pas `.update now`.
 
 Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Avant le lancement, l’installation exécute les tests du projet. Le bot tourne sous PM2, redémarre après un crash avec un délai, et revient au redémarrage du VPS. Les journaux PM2 sont limités à 10 Mo par fichier et conservent les 7 derniers fichiers compressés. Après l’installation, consultez `pm2 status` puis `pm2 logs rorisu` pour voir le QR code de connexion et les journaux techniques. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
 

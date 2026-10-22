@@ -9,3 +9,4 @@ data/store.json.writing
 data/*.writing
 data/sticker-work/
 npm-debug.log*
+logs/

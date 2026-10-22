@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { checkForUpdates, installUpdates } from '../core/git-updates.js';
 import { createUpdatePlugin } from '../plugins/update.js';
@@ -17,7 +18,7 @@ test('installUpdates fusionne en avance rapide puis installe les dépendances', 
   );
 
   assert.deepEqual(calls[0], ['git', ['status', '--porcelain']]);
-  assert.deepEqual(calls[1], ['git', ['merge', '--ff-only', '@{upstream}']]);
+  assert.deepEqual(calls[1], ['git', ['merge', '--ff-only', 'origin/master']]);
   assert.equal(calls[2][0], 'npm');
   assert.match(calls[2][2].join(' '), /ci --omit=dev/);
 });
@@ -125,4 +126,9 @@ test('update reste réservé au propriétaire', async () => {
 
   assert.equal(checked, false);
   assert.match(context.replies[0], /réservée au propriétaire/);
+});
+
+test('les fichiers de logs PM2 sont ignorés par Git', async () => {
+  const ignoreRules = await readFile(new URL('../.gitignore', import.meta.url), 'utf8');
+  assert.match(ignoreRules, /^logs\/$/m);
 });

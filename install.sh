@@ -87,6 +87,9 @@ node_is_supported || fail "Node.js 20 ou supérieur n’a pas pu être installé
 
 printf 'Téléchargement du projet...\n'
 run_install_user git clone --depth 1 --branch master "$repository_url" "$install_dir"
+run_install_user git -C "$install_dir" remote set-url origin "$repository_url"
+run_install_user git -C "$install_dir" branch --set-upstream-to=origin/master master
+run_install_user git -C "$install_dir" rev-parse --verify refs/remotes/origin/master >/dev/null
 
 run_install_user cp "$install_dir/config.env.example" "$install_dir/config.env"
 run_install_user chmod 600 "$install_dir/config.env"

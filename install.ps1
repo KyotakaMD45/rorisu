@@ -125,6 +125,19 @@ if ($LASTEXITCODE -ne 0) {
   Stop-Installation "le clonage du dépôt Git a échoué (code $LASTEXITCODE)."
 }
 
+& $gitCommand.Source -C $installDirectory remote set-url origin 'https://github.com/KyotakaMD45/rorisu.git'
+if ($LASTEXITCODE -ne 0) {
+  Stop-Installation "la configuration du dépôt Git a échoué (code $LASTEXITCODE)."
+}
+& $gitCommand.Source -C $installDirectory branch --set-upstream-to=origin/master master
+if ($LASTEXITCODE -ne 0) {
+  Stop-Installation "la configuration de la branche de mise à jour a échoué (code $LASTEXITCODE)."
+}
+& $gitCommand.Source -C $installDirectory rev-parse --verify refs/remotes/origin/master
+if ($LASTEXITCODE -ne 0) {
+  Stop-Installation "la branche de mise à jour GitHub est introuvable (code $LASTEXITCODE)."
+}
+
 $environmentFile = Join-Path $installDirectory 'config.env'
 $environment = [System.IO.File]::ReadAllText((Join-Path $installDirectory 'config.env.example'))
 $environment = [regex]::Replace($environment, '(?m)^SUDO=.*$', "SUDO=$sudoNumber")
