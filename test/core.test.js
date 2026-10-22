@@ -1006,8 +1006,10 @@ test('le vérificateur Git liste les commits disponibles sans les installer', as
   });
 
   assert.deepEqual(status, {
+    provider: 'git',
     upstream: 'origin/master',
     commits: ['def456\tCorrection', 'abc123\tNouvelle commande'],
+    latestCommit: 'remote',
   });
   assert.deepEqual(calls.slice(0, 2), [
     ['remote', 'set-url', 'origin', 'https://github.com/KyotakaMD45/rorisu.git'],

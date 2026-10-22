@@ -65,6 +65,20 @@ Les options sont désactivées par défaut et se règlent en privé avec `.setva
 
 `AUTO_STATUS` transfère les statuts reçus au propriétaire, sauf les médias à vue unique. `AUTO_UPDATE` vérifie les mises à jour GitHub à la connexion puis toutes les cinq minutes. Pour désactiver une option, remplacez `on` par `off`. Le propriétaire reçoit aussi un message privé à la connexion avec l’état des fonctions.
 
+### Mise à jour sur Render, Koyeb et Heroku
+
+Sur VPS/PM2, `.update now` récupère la branche Git, installe les dépendances puis redémarre PM2. Sur un hébergeur géré, le système de fichiers du conteneur n’est pas la source de déploiement : la commande demande à la plateforme de construire le commit GitHub courant. La réponse de mise à jour est envoyée en privé au propriétaire.
+
+Configurez les variables suivantes dans les paramètres privés de la plateforme (ne publiez jamais les clés d’API) :
+
+| Plateforme | `UPDATE_PROVIDER` | Variables secrètes / identifiant |
+| --- | --- | --- |
+| Render | `render` (détection automatique possible) | `RENDER_API_KEY`; l’identifiant est fourni par `RENDER_SERVICE_ID`. |
+| Koyeb | `koyeb` | `KOYEB_API_TOKEN` et `KOYEB_SERVICE_ID`. |
+| Heroku | `heroku` (détection automatique possible) | `HEROKU_API_KEY` et `HEROKU_APP_NAME`. Activez `heroku labs:enable runtime-dyno-build-metadata -a NOM_APP` pour fournir `HEROKU_BUILD_COMMIT`. |
+
+La source GitHub doit être accessible à la plateforme, et l’application doit être configurée pour démarrer avec `npm start`. Les API des plateformes peuvent accepter la demande avant la fin du build; vérifiez ensuite le statut du déploiement dans leur tableau de bord. `AUTO_UPDATE=on` utilise le même mécanisme et déclenche un déploiement lorsque le propriétaire l’active.
+
 ## Commandes
 
 Le préfixe par défaut est `.`; il se règle avec `HANDLERS`. Les anciennes
@@ -89,7 +103,7 @@ virgules.
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
 | `.setsudo [list|add <numéro>|remove <numéro>]` | Gère les propriétaires du bot; le dernier propriétaire ne peut pas être retiré. |
 | `.prefix [préfixe]` | Affiche ou modifie le préfixe du bot (propriétaire uniquement; redémarrage automatique). Les symboles et emoji sont acceptés; plusieurs préfixes sont séparés par des virgules; `null` désactive les préfixes. |
-| `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie les mises à jour ou les installe, puis redémarre (propriétaire uniquement). |
+| `.update`, `.update now`, `.restart`, `.shutdown` | Vérifie/installe les mises à jour ou demande un déploiement géré, puis redémarre (propriétaire uniquement). |
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
 

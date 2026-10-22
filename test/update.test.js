@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { checkForUpdates, installUpdates } from '../core/git-updates.js';
+import {
+  checkPlatformUpdates,
+  getUpdateProvider,
+  requestPlatformDeployment,
+} from '../core/platform-updates.js';
 import { createUpdatePlugin } from '../plugins/update.js';
 
 test('installUpdates fusionne en avance rapide puis installe les dépendances', async () => {
@@ -131,4 +136,155 @@ test('update reste réservé au propriétaire', async () => {
 test('les fichiers de logs PM2 sont ignorés par Git', async () => {
   const ignoreRules = await readFile(new URL('../.gitignore', import.meta.url), 'utf8');
   assert.match(ignoreRules, /^logs\/$/m);
+});
+
+test('Render compare la révision déployée et demande un déploiement du commit GitHub', async () => {
+  const requests = [];
+  const fetchImpl = async (url, options = {}) => {
+    requests.push({ url, options });
+    if (url.includes('/compare/')) {
+      return new Response(JSON.stringify({
+        status: 'ahead',
+        commits: [{
+          sha: 'a'.repeat(40),
+          commit: { message: 'Correction Render\nDétails' },
+        }],
+      }));
+    }
+    return new Response(null, { status: 202 });
+  };
+  const environment = {
+    RENDER_GIT_COMMIT: 'b'.repeat(40),
+    RENDER_API_KEY: 'private-token',
+    RENDER_SERVICE_ID: 'srv-123',
+  };
+  const status = await checkPlatformUpdates({ provider: 'render', environment, fetchImpl });
+  assert.equal(status.commits[0], `${'a'.repeat(7)}\tCorrection Render`);
+  assert.equal(status.latestCommit, 'a'.repeat(40));
+
+  const result = await requestPlatformDeployment({
+    provider: 'render',
+    targetCommit: status.latestCommit,
+    environment,
+    fetchImpl,
+  });
+  assert.deepEqual(result, { provider: 'render', deploymentId: undefined });
+  assert.equal(requests[1].options.method, 'POST');
+  assert.deepEqual(JSON.parse(requests[1].options.body), { commitId: 'a'.repeat(40) });
+  assert.equal(requests[1].options.headers.authorization, 'Bearer private-token');
+});
+
+test('Koyeb lit le commit actif et redéploie le commit demandé', async () => {
+  const requests = [];
+  const fetchImpl = async (url, options = {}) => {
+    requests.push({ url, options });
+    if (url.endsWith('/v1/services/service-123')) {
+      return new Response(JSON.stringify({ service: { active_deployment_id: 'deployment-1' } }));
+    }
+    if (url.endsWith('/v1/deployments/deployment-1')) {
+      return new Response(JSON.stringify({
+        deployment: { metadata: { git: { git_env: { sha: 'b'.repeat(40) } } } },
+      }));
+    }
+    if (url.includes('/compare/')) {
+      return new Response(JSON.stringify({
+        status: 'ahead',
+        commits: [{
+          sha: 'a'.repeat(40),
+          commit: { message: 'Correction Koyeb' },
+        }],
+      }));
+    }
+    return new Response(JSON.stringify({ deployment: { id: 'deployment-2' } }));
+  };
+  const environment = {
+    KOYEB_API_TOKEN: 'private-token',
+    KOYEB_SERVICE_ID: 'service-123',
+  };
+  const status = await checkPlatformUpdates({ provider: 'koyeb', environment, fetchImpl });
+  assert.equal(status.latestCommit, 'a'.repeat(40));
+
+  const result = await requestPlatformDeployment({
+    provider: 'koyeb',
+    targetCommit: status.latestCommit,
+    environment,
+    fetchImpl,
+  });
+  assert.deepEqual(result, { provider: 'koyeb', deploymentId: 'deployment-2' });
+  assert.equal(requests.at(-1).url, 'https://app.koyeb.com/v1/services/service-123/redeploy');
+  assert.deepEqual(JSON.parse(requests.at(-1).options.body), { sha: 'a'.repeat(40) });
+});
+
+test('Heroku crée un build depuis l’archive du commit GitHub', async () => {
+  let request;
+  const fetchImpl = async (url, options) => {
+    request = { url, options };
+    return new Response(JSON.stringify({ id: 'build-123' }));
+  };
+  const result = await requestPlatformDeployment({
+    provider: 'heroku',
+    targetCommit: 'a'.repeat(40),
+    environment: { HEROKU_API_KEY: 'private-token', HEROKU_APP_NAME: 'rorisu-app' },
+    fetchImpl,
+  });
+
+  assert.deepEqual(result, { provider: 'heroku', deploymentId: 'build-123' });
+  assert.equal(request.url, 'https://api.heroku.com/apps/rorisu-app/builds');
+  assert.equal(
+    JSON.parse(request.options.body).source_blob.url,
+    `https://github.com/KyotakaMD45/rorisu/archive/${'a'.repeat(40)}.tar.gz`,
+  );
+});
+
+test('un hébergeur géré sans API key reçoit un diagnostic explicite', async () => {
+  await assert.rejects(
+    requestPlatformDeployment({
+      provider: 'render',
+      targetCommit: 'a'.repeat(40),
+      environment: { RENDER_SERVICE_ID: 'srv-123' },
+    }),
+    { code: 'ERR_UPDATE_CONFIG', userMessage: 'RENDER_API_KEY est obligatoire pour utiliser les mises à jour render.' },
+  );
+});
+
+test('le fournisseur est détecté sur Render, Koyeb et Heroku', () => {
+  assert.equal(getUpdateProvider({ RENDER: 'true' }), 'render');
+  assert.equal(getUpdateProvider({ KOYEB_SERVICE_ID: 'service-123' }), 'koyeb');
+  assert.equal(getUpdateProvider({ DYNO: 'web.1' }), 'heroku');
+  assert.equal(getUpdateProvider({}), 'git');
+});
+
+test('le déploiement géré exige une version distante non divergente', async () => {
+  await assert.rejects(
+    checkPlatformUpdates({
+      provider: 'render',
+      environment: { RENDER_GIT_COMMIT: 'b'.repeat(40) },
+      async fetchImpl() {
+        return new Response(JSON.stringify({ status: 'diverged', commits: [] }));
+      },
+    }),
+    { code: 'ERR_UPDATE_DIVERGED' },
+  );
+});
+
+test('update indique que le déploiement géré est lancé sans redémarrer le processus lui-même', async () => {
+  let restarted = false;
+  const replies = [];
+  const plugin = createUpdatePlugin({
+    async checkUpdates() {
+      return { provider: 'koyeb', latestCommit: 'a'.repeat(40), commits: ['abcdef0\tCorrection'] };
+    },
+    async applyUpdates() { return { provider: 'koyeb', deploymentId: 'deployment-2' }; },
+  });
+  const context = createContext({
+    args: ['now'],
+    lifecycle: { async restart() { restarted = true; } },
+  });
+  context.sendOwnerReply = async (text) => replies.push(text);
+
+  await plugin.execute(context);
+
+  assert.match(replies.at(-1), /Déploiement demandé à koyeb/);
+  assert.equal(context.replies.length, 0);
+  assert.equal(restarted, false);
 });

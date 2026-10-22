@@ -2,6 +2,11 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  checkPlatformUpdates,
+  getUpdateProvider,
+  requestPlatformDeployment,
+} from './platform-updates.js';
 
 const execFileAsync = promisify(execFile);
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,7 +42,16 @@ async function executeRepositoryGit(executeGit, args) {
   }
 }
 
-export async function checkForUpdates(executeGit = runGit) {
+export async function checkForUpdates(executeGit = runGit, options = {}) {
+  const provider = options.provider || getUpdateProvider(options.environment);
+  if (provider !== 'git') {
+    return checkPlatformUpdates({
+      provider,
+      environment: options.environment,
+      fetchImpl: options.fetchImpl,
+    });
+  }
+
   await executeRepositoryGit(executeGit, ['remote', 'set-url', 'origin', repositoryUrl]);
   await executeRepositoryGit(executeGit, ['fetch', '--prune', 'origin']);
 
@@ -48,7 +62,7 @@ export async function checkForUpdates(executeGit = runGit) {
     `refs/remotes/${upstream}`,
   ]);
   if (localOutput.trim() === remoteOutput.trim()) {
-    return { upstream, commits: [] };
+    return { provider, upstream, commits: [], latestCommit: remoteOutput.trim() };
   }
 
   const { stdout: logOutput } = await executeRepositoryGit(executeGit, [
@@ -60,10 +74,20 @@ export async function checkForUpdates(executeGit = runGit) {
   if (!commits.length) {
     throw new Error('Git détecte un écart, mais n’a pas pu lire les commits distants.');
   }
-  return { upstream, commits };
+  return { provider, upstream, commits, latestCommit: remoteOutput.trim() };
 }
 
-export async function installUpdates(executeGit = runGit, executeNpm = execFileAsync) {
+export async function installUpdates(executeGit = runGit, executeNpm = execFileAsync, options = {}) {
+  const provider = options.provider || getUpdateProvider(options.environment);
+  if (provider !== 'git') {
+    return requestPlatformDeployment({
+      provider,
+      targetCommit: options.targetCommit,
+      environment: options.environment,
+      fetchImpl: options.fetchImpl,
+    });
+  }
+
   const { stdout: statusOutput } = await executeRepositoryGit(executeGit, ['status', '--porcelain']);
   if (statusOutput?.trim()) {
     const error = new Error('Des modifications locales empêchent une mise à jour sûre.');

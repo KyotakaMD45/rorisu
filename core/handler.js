@@ -281,6 +281,9 @@ export function createMessageHandler({
             { text: reply, ...extra },
             { quoted: message },
           ),
+          sendOwnerReply: config.sudoNumbers[0]
+            ? (reply) => socket.sendMessage(`${config.sudoNumbers[0]}@s.whatsapp.net`, { text: reply })
+            : undefined,
         });
 
         await storage.increment(`command:${plugin.name}`);

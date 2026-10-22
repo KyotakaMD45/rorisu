@@ -24,6 +24,8 @@ export const restartRequiredVariables = new Set([
   'SUDO',
   'STORAGE_FILE',
   'TZ',
+  'UPDATE_CURRENT_COMMIT',
+  'UPDATE_PROVIDER',
   'WARN_LIMIT',
 ]);
 
