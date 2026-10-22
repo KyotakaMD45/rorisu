@@ -1,4 +1,4 @@
-# RORISU Baileys Bot
+# RORISU
 
 Bot WhatsApp Node.js basé sur Baileys : commandes de groupe, API HTTP, extensions, suivi des statuts et assistant Gemini.
 
@@ -9,26 +9,26 @@ Choisissez votre plateforme et lancez la commande dans son terminal :
 **VPS Debian/Ubuntu** (PM2; fonctionne avec un utilisateur `sudo` ou root) :
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu/master/install.sh | bash
 ```
 
 **Android Termux** (gardez Termux ouvert) :
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install-termux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KyotakaMD45/rorisu/master/install-termux.sh | bash
 ```
 
 **Windows PowerShell** :
 
 ```powershell
-irm https://raw.githubusercontent.com/KyotakaMD45/rorisu-baileys-bot/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/KyotakaMD45/rorisu/master/install.ps1 | iex
 ```
 
 L’installateur Windows installe Git et clone le dépôt pour permettre `.update`.
 Les anciennes installations Windows déployées depuis une archive ZIP ne
 contiennent pas les métadonnées Git ; elles doivent être migrées vers un clone.
 
-Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Avant le lancement, l’installation exécute les tests du projet. Le bot tourne sous PM2, redémarre après un crash avec un délai, et revient au redémarrage du VPS. Les journaux PM2 sont limités à 10 Mo par fichier et conservent les 7 derniers fichiers compressés. Après l’installation, consultez `pm2 status` puis `pm2 logs rorisu-baileys-bot` pour voir le QR code de connexion et les journaux techniques. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
+Sur un VPS, le script crée automatiquement `config.env` avec les valeurs par défaut et ne demande que le numéro WhatsApp du propriétaire. Les autres réglages (Gemini, API, options automatiques…) pourront être ajoutés après l’installation. Une autorisation système peut aussi être demandée par `sudo` si nécessaire. Avant le lancement, l’installation exécute les tests du projet. Le bot tourne sous PM2, redémarre après un crash avec un délai, et revient au redémarrage du VPS. Les journaux PM2 sont limités à 10 Mo par fichier et conservent les 7 derniers fichiers compressés. Après l’installation, consultez `pm2 status` puis `pm2 logs rorisu` pour voir le QR code de connexion et les journaux techniques. Les identifiants WhatsApp sont conservés localement : ne partagez pas le dossier de session. Si vous lancez le script en root avec `sudo su`, il utilise l’utilisateur d’origine (`SUDO_USER`) quand il est disponible ; autrement il installe le service sous l’utilisateur courant.
 
 ## Configuration
 
@@ -77,7 +77,7 @@ virgules.
 
 | Commandes | Description |
 | --- | --- |
-| `.list`, `.alive`, `.ping` | Aide et état du bot. |
+| `.list`, `.alive`, `.ping` | Aide, état, temps en ligne et mémoire utilisée. |
 | `.gemini`, `.ai`, `.image`, `.imagine` | Assistant multimodal et génération d’images. |
 | `.download`, `.yt`, `.youtube`, `.tiktok`, `.insta`, `.fb` | Télécharge des médias publics pris en charge (yt-dlp requis; limite 20 Mo). |
 | `.sticker`, `.poll`, `.afk`, `.react`, `.jid` (`.id`, `.getjid`), `.dlt` | Outils de discussion; `.jid` affiche les identifiants de la discussion, de l’expéditeur, des mentions et du message cité; `.dlt` supprime le message cité avec les permissions nécessaires. |
@@ -101,11 +101,11 @@ Pour l’anti-suppression, le propriétaire peut utiliser `.delete p` pour recev
 
 Les détails des sessions Signal cryptographiques sont masqués dans le terminal; ne partagez jamais les journaux bruts ou les fichiers d’authentification WhatsApp.
 
-Sur VPS, gérez le processus avec `pm2 status`, `pm2 logs rorisu-baileys-bot`, `pm2 restart rorisu-baileys-bot` ou `pm2 stop rorisu-baileys-bot`. Les mises à jour `.update now` et `AUTO_UPDATE` installent également les dépendances de production avant de redémarrer le processus PM2.
+Sur VPS, gérez le processus avec `pm2 status`, `pm2 logs rorisu`, `pm2 restart rorisu` ou `pm2 stop rorisu`. Les mises à jour `.update now` et `AUTO_UPDATE` installent également les dépendances de production avant de redémarrer le processus PM2.
 
 ## API et Docker
 
-L’API HTTP est facultative : configurez `API_MODE=true`, une clé forte dans `API_KEY`, puis `PORT`. Elle permet l’envoi de messages et les webhooks; protégez-la derrière HTTPS et ne publiez pas son port sans proxy sécurisé. Consultez [la documentation API du dépôt](https://github.com/KyotakaMD45/rorisu-baileys-bot) pour les routes et exemples.
+L’API HTTP est facultative : configurez `API_MODE=true`, une clé forte dans `API_KEY`, puis `PORT`. Elle permet l’envoi de messages et les webhooks; protégez-la derrière HTTPS et ne publiez pas son port sans proxy sécurisé. Consultez [la documentation API du dépôt](https://github.com/KyotakaMD45/rorisu) pour les routes et exemples.
 
 Pour Docker, copiez `config.env.example` vers `config.env`, renseignez `SUDO`, puis lancez `docker compose up -d --build`. Suivez le QR avec `docker compose logs -f bot`.
 

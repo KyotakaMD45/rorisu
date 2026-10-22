@@ -44,5 +44,6 @@ test('la connexion envoie le message de bienvenue en privé au propriétaire', a
   assert.equal(socket.sent.length, 1);
   assert.equal(socket.sent[0].chatId, '33612345678@s.whatsapp.net');
   assert.match(socket.sent[0].content.text, /Envoie \*menu\* \(sans préfixe\)/);
+  assert.match(socket.sent[0].content.text, /ou \*alive\* pour l’état du bot/);
   assert.equal(connection.socket, socket);
 });

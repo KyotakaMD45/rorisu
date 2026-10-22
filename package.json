@@ -1,5 +1,5 @@
 {
-  "name": "rorisu-baileys-bot",
+  "name": "rorisu",
   "version": "1.0.0",
   "description": "Bot WhatsApp modulaire basé sur Baileys.",
   "type": "module",

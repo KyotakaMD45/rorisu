@@ -35,8 +35,8 @@ export function buildOwnerWelcome({
     `Numéro : ${ownerNumber}`,
     '',
     prefix
-      ? `Envoie *${prefix}menu* pour voir les commandes.`
-      : 'Envoie *menu* (sans préfixe) pour voir les commandes.',
+      ? `Envoie *${prefix}menu* pour voir les commandes ou *${prefix}alive* pour l’état du bot.`
+      : 'Envoie *menu* (sans préfixe) pour voir les commandes ou *alive* pour l’état du bot.',
     '',
     '⚙️ *Fonctionnalités*',
     `• Statuts vers le propriétaire : ${autoStatus}`,
@@ -170,7 +170,7 @@ export async function createConnection({
         autoUpdate,
         antiDelete,
         antiVv: 'désactivée (confidentialité)',
-        gemini: config.gemini.apiKey ? 'activé' : 'désactivé (clé API manquante)',
+        gemini: config.gemini?.apiKey ? 'activé' : 'désactivé (clé API manquante)',
       });
 
       await socket.sendMessage(ownerJid, { text: welcome });

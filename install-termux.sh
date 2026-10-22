@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-readonly repository_url="https://github.com/KyotakaMD45/rorisu-baileys-bot.git"
-readonly install_dir="${RORISU_INSTALL_DIR:-$HOME/rorisu-baileys-bot}"
+readonly repository_url="https://github.com/KyotakaMD45/rorisu.git"
+readonly install_dir="${RORISU_INSTALL_DIR:-$HOME/rorisu}"
 
 fail() {
   printf 'Erreur : %s\n' "$*" >&2

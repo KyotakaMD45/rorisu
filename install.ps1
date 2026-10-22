@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$installDirectory = Join-Path $HOME 'rorisu-baileys-bot'
+$installDirectory = Join-Path $HOME 'rorisu'
 
 function Stop-Installation([string]$Message) {
   Write-Error "Erreur : $Message"
@@ -120,7 +120,7 @@ if ($sudoNumber -notmatch '^[0-9]{6,15}$') {
 }
 
 Write-Host 'Clonage du dépôt Git...'
-& $gitCommand.Source clone --depth 1 --branch master 'https://github.com/KyotakaMD45/rorisu-baileys-bot.git' $installDirectory
+& $gitCommand.Source clone --depth 1 --branch master 'https://github.com/KyotakaMD45/rorisu.git' $installDirectory
 if ($LASTEXITCODE -ne 0) {
   Stop-Installation "le clonage du dépôt Git a échoué (code $LASTEXITCODE)."
 }

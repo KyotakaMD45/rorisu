@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-readonly repository_url="https://github.com/KyotakaMD45/rorisu-baileys-bot.git"
-readonly service_name="rorisu-baileys-bot"
+readonly repository_url="https://github.com/KyotakaMD45/rorisu.git"
+readonly service_name="rorisu"
 
 fail() {
   printf 'Erreur : %s\n' "$*" >&2
@@ -46,7 +46,7 @@ fi
 
 install_home="$(getent passwd "$install_user" | cut -d: -f6)"
 [[ -n "$install_home" && -d "$install_home" ]] || fail "impossible de trouver le dossier personnel de $install_user."
-readonly install_dir="${RORISU_INSTALL_DIR:-$install_home/rorisu-baileys-bot}"
+readonly install_dir="${RORISU_INSTALL_DIR:-$install_home/rorisu}"
 
 if [[ "$install_dir" =~ [[:space:]] ]]; then
   fail "le chemin d’installation ne doit pas contenir d’espaces : $install_dir"
