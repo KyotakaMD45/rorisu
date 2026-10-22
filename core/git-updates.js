@@ -90,20 +90,46 @@ export async function installUpdates(executeGit = runGit, executeNpm = execFileA
 
   const { stdout: statusOutput } = await executeRepositoryGit(executeGit, ['status', '--porcelain']);
   if (statusOutput?.trim()) {
-    const error = new Error('Des modifications locales empêchent une mise à jour sûre.');
+    const changedFiles = statusOutput
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => line.slice(3).trim())
+      .filter(Boolean);
+    const visibleFiles = changedFiles.slice(0, 5);
+    const extraFiles = changedFiles.length - visibleFiles.length;
+    const fileList = visibleFiles.length
+      ? ` Fichiers concernés : ${visibleFiles.join(', ')}${extraFiles > 0 ? ` et ${extraFiles} autre(s)` : ''}.`
+      : '';
+    const error = new Error(`Des modifications locales empêchent une mise à jour sûre.${fileList}`);
     error.code = 'ERR_DIRTY_WORKTREE';
+    error.userMessage = `${error.message} Depuis le dossier du bot, vérifie \`git status --short\`; sauvegarde les changements avant de réessayer.`;
     throw error;
   }
 
-  await executeRepositoryGit(executeGit, ['merge', '--ff-only', upstream]);
+  await executeRepositoryGit(executeGit, ['fetch', '--prune', 'origin']);
+  const targetCommit = options.targetCommit || upstream;
+  if (options.targetCommit && !/^[a-f\d]{40,64}$/i.test(options.targetCommit)) {
+    const error = new Error('Le commit cible de la mise à jour est invalide.');
+    error.code = 'ERR_UPDATE_REVISION_UNKNOWN';
+    error.userMessage = error.message;
+    throw error;
+  }
+  await executeRepositoryGit(executeGit, ['merge', '--ff-only', targetCommit]);
   const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
   const args = process.platform === 'win32'
     ? ['/d', '/s', '/c', 'npm ci --omit=dev']
     : ['ci', '--omit=dev'];
-  return executeNpm(command, args, {
-    cwd: projectDirectory,
-    env: { ...process.env, npm_config_fund: 'false', npm_config_audit: 'false' },
-    timeout: 300_000,
-    windowsHide: true,
-  });
+  try {
+    return await executeNpm(command, args, {
+      cwd: projectDirectory,
+      env: { ...process.env, npm_config_fund: 'false', npm_config_audit: 'false' },
+      timeout: 300_000,
+      windowsHide: true,
+    });
+  } catch (cause) {
+    const error = new Error('Le code a été mis à jour, mais npm ci n’a pas pu installer les dépendances.', { cause });
+    error.code = 'ERR_UPDATE_DEPENDENCIES';
+    error.userMessage = 'Le code a été récupéré, mais l’installation des dépendances (npm ci) a échoué. Consulte les journaux PM2/du terminal, corrige l’erreur npm puis relance npm ci --omit=dev avant de redémarrer le bot.';
+    throw error;
+  }
 }

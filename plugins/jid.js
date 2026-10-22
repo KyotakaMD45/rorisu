@@ -1,4 +1,8 @@
-import { normalizeJid } from '../core/group-utils.js';
+import {
+  getLinkedLidJid,
+  getPhoneNumberJid,
+  normalizeJid,
+} from '../core/group-utils.js';
 
 export default {
   name: 'jid',
@@ -15,6 +19,7 @@ export default {
         [
           'Message cité',
           quotedMessage.key.participant
+            || quotedMessage.key.participantAlt
             || (quotedMessage.key.fromMe ? socket?.user?.id : undefined)
             || quotedMessage.key.remoteJid,
         ],
@@ -29,6 +34,24 @@ export default {
       if (seen.has(`${label}:${normalizedJid}`)) continue;
       seen.add(`${label}:${normalizedJid}`);
       uniqueEntries.push(`${label} : ${jid}`);
+
+      const phoneJid = await getPhoneNumberJid(jid, socket);
+      if (phoneJid) {
+        const phoneLabel = `${label} (numéro)`;
+        if (!seen.has(`${phoneLabel}:${phoneJid}`)) {
+          seen.add(`${phoneLabel}:${phoneJid}`);
+          uniqueEntries.push(`${phoneLabel} : ${phoneJid}`);
+        }
+      }
+
+      const lidJid = await getLinkedLidJid(phoneJid || jid, socket);
+      if (lidJid) {
+        const lidLabel = `${label} (LID)`;
+        if (!seen.has(`${lidLabel}:${normalizeJid(lidJid)}`)) {
+          seen.add(`${lidLabel}:${normalizeJid(lidJid)}`);
+          uniqueEntries.push(`${lidLabel} : ${lidJid}`);
+        }
+      }
     }
 
     await sendReply(`🆔 *Identifiants JID*\n${uniqueEntries.join('\n')}`);

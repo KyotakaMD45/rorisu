@@ -15,6 +15,7 @@ test('valide les numéros et JID WhatsApp comme destinations', () => {
   assert.equal(parseWhatsAppJid('+33 6 12 34 56 78'), '33612345678@s.whatsapp.net');
   assert.equal(parseWhatsAppJid('123456789-123456@g.us'), '123456789-123456@g.us');
   assert.equal(parseWhatsAppJid('123456789:4@lid'), '123456789:4@lid');
+  assert.equal(parseWhatsAppJid('123456789@hosted.lid'), '123456789@hosted.lid');
   assert.equal(parseWhatsAppJid('not-a-jid'), null);
 });
 

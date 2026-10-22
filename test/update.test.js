@@ -23,9 +23,10 @@ test('installUpdates fusionne en avance rapide puis installe les dépendances', 
   );
 
   assert.deepEqual(calls[0], ['git', ['status', '--porcelain']]);
-  assert.deepEqual(calls[1], ['git', ['merge', '--ff-only', 'origin/master']]);
-  assert.equal(calls[2][0], 'npm');
-  assert.match(calls[2][2].join(' '), /ci --omit=dev/);
+  assert.deepEqual(calls[1], ['git', ['fetch', '--prune', 'origin']]);
+  assert.deepEqual(calls[2], ['git', ['merge', '--ff-only', 'origin/master']]);
+  assert.equal(calls[3][0], 'npm');
+  assert.match(calls[3][2].join(' '), /ci --omit=dev/);
 });
 
 test('installUpdates refuse de fusionner quand le dépôt contient des changements locaux', async () => {
@@ -43,6 +44,52 @@ test('installUpdates refuse de fusionner quand le dépôt contient des changemen
   assert.deepEqual(calls, [['status', '--porcelain']]);
 });
 
+test('installUpdates fusionne exactement le commit vérifié', async () => {
+  const calls = [];
+  const targetCommit = 'a'.repeat(40);
+  await installUpdates(
+    async (args) => {
+      calls.push(['git', args]);
+      return { stdout: '' };
+    },
+    async () => ({}),
+    { targetCommit },
+  );
+
+  assert.deepEqual(calls[2], ['git', ['merge', '--ff-only', targetCommit]]);
+});
+
+test('installUpdates refuse un commit cible invalide avant le merge', async () => {
+  const calls = [];
+  await assert.rejects(
+    installUpdates(
+      async (args) => {
+        calls.push(args);
+        return { stdout: '' };
+      },
+      async () => assert.fail('npm ne doit pas être lancé pour un commit invalide.'),
+      { targetCommit: '--upload-pack=malformed' },
+    ),
+    { code: 'ERR_UPDATE_REVISION_UNKNOWN' },
+  );
+  assert.deepEqual(calls, [['status', '--porcelain'], ['fetch', '--prune', 'origin']]);
+});
+
+test('installUpdates explique l’échec de npm ci après le fast-forward', async () => {
+  const targetCommit = 'b'.repeat(40);
+  await assert.rejects(
+    installUpdates(
+      async () => ({ stdout: '' }),
+      async () => { throw new Error('npm registry unavailable'); },
+      { targetCommit },
+    ),
+    {
+      code: 'ERR_UPDATE_DEPENDENCIES',
+      userMessage: /npm ci.*échoué/,
+    },
+  );
+});
+
 test('update explique les installations Windows téléchargées en ZIP', async () => {
   const checkUpdates = () => checkForUpdates(async () => {
     throw new Error('Command failed: git fetch\nfatal: not a git repository');
@@ -54,8 +101,7 @@ test('update explique les installations Windows téléchargées en ZIP', async (
 
   await plugin.execute(context);
 
-  assert.match(context.replies[0], /archive ZIP/);
-  assert.match(context.replies[0], /dernière commande Windows du README/);
+  assert.match(context.replies[0], /migrer sans supprimer tes sessions/);
 });
 
 function createContext({ args = [], isSudo = true, lifecycle = {}, logger } = {}) {

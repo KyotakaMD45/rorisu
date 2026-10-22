@@ -14,7 +14,7 @@ export default {
     const categories = [
       ['🔄 CONVERSION', ['sticker']],
       ['✨ IA & MÉDIAS', ['download', 'gemini', 'image', 'delete', 'vv']],
-      ['👥 GROUPE', ['antilink', 'antiword', 'filter', 'ginfo', 'greet', 'group', 'tag', 'warn']],
+      ['👥 GROUPE', ['antilink', 'antispam', 'antiword', 'filter', 'ginfo', 'greet', 'group', 'slowmode', 'tag', 'warn']],
       ['🧰 OUTILS', ['afk', 'jid', 'poll', 'react', 'rori']],
       ['🤖 BOT & COMPTE', ['alive', 'list', 'ping']],
       ['🔐 PROPRIÉTAIRE', ['allvar', 'antivv', 'delvar', 'getvar', 'prefix', 'restart', 'setsudo', 'setvar', 'shutdown', 'update']],

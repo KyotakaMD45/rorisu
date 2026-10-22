@@ -1,6 +1,11 @@
 import { normalizeNumber } from '../config.js';
 import { WAMessageStubType, downloadMediaMessage } from '@whiskeysockets/baileys';
-import { findParticipant, isGroupAdmin, normalizeJid } from './group-utils.js';
+import {
+  findParticipant,
+  getPhoneNumberJid,
+  isGroupAdmin,
+  normalizeJid,
+} from './group-utils.js';
 import { unwrapMessage } from './message-content.js';
 import {
   cacheMessage,
@@ -44,6 +49,29 @@ export function createMessageHandler({
 }) {
   const processingStatusIds = new Set();
   const cachedMessages = new Map();
+  const repeatedMessages = new Map();
+  const slowModeMessages = new Map();
+  const antiSpamWindowMs = 10_000;
+  const antiSpamThreshold = 3;
+  const slowModeIntervalMs = 5_000;
+
+  function isRepeatedSpam(chatId, senderJid, text) {
+    const normalizedText = text.toLocaleLowerCase().replace(/\s+/gu, ' ').trim();
+    if (!normalizedText) return false;
+
+    const now = Date.now();
+    const key = `${chatId}:${normalizeJid(senderJid)}:${normalizedText}`;
+    const recent = (repeatedMessages.get(key) || [])
+      .filter((timestamp) => now - timestamp < antiSpamWindowMs);
+    recent.push(now);
+    repeatedMessages.delete(key);
+    repeatedMessages.set(key, recent);
+
+    if (repeatedMessages.size > 5000) {
+      repeatedMessages.delete(repeatedMessages.keys().next().value);
+    }
+    return recent.length >= antiSpamThreshold;
+  }
 
   async function handleUpsert(event, socket, lifecycle) {
     // Ignore l'historique ajouté à la connexion pour éviter de rejouer d'anciennes commandes.
@@ -128,11 +156,63 @@ export function createMessageHandler({
         }
 
         const senderJid = message.key.participant || chatId;
+        const senderPhoneJid = await getPhoneNumberJid(
+          senderJid,
+          socket,
+          message.key.participantAlt || message.key.remoteJidAlt,
+        );
         const senderNumber = message.key.fromMe
           ? config.sudoNumbers[0] || normalizeNumber(senderJid.split('@')[0].split(':')[0])
-          : normalizeNumber(senderJid.split('@')[0].split(':')[0]);
+          : normalizeNumber(senderPhoneJid?.split('@')[0].split(':')[0]);
         const isSudo = message.key.fromMe || config.sudoNumbers.includes(senderNumber);
         const text = getMessageText(message).trim();
+        if (chatId.endsWith('@g.us')
+          && !message.key.fromMe
+          && !isSudo
+          && await storage.get(`group:${chatId}:slowmode`) === true) {
+          const metadata = await socket.groupMetadata(chatId);
+          const participants = metadata.participants || [];
+          const sender = findParticipant(participants, senderJid)
+            || findParticipant(participants, message.key.participantAlt);
+          if (!isGroupAdmin(sender)) {
+            const bot = findParticipant(participants, socket.user?.id);
+            if (!isGroupAdmin(bot)) {
+              logger.error({ chatId }, 'Mode lent actif mais le bot n’est plus administrateur du groupe.');
+            } else {
+              const memberJid = normalizeJid(senderPhoneJid || senderJid);
+              const rateLimitKey = `${chatId}:${memberJid}`;
+              const now = Date.now();
+              const lastAcceptedMessage = slowModeMessages.get(rateLimitKey) || 0;
+              if (now - lastAcceptedMessage < slowModeIntervalMs) {
+                await socket.sendMessage(chatId, { delete: message.key });
+                continue;
+              }
+              slowModeMessages.set(rateLimitKey, now);
+              if (slowModeMessages.size > 5000) {
+                slowModeMessages.delete(slowModeMessages.keys().next().value);
+              }
+            }
+          }
+        }
+        if (chatId.endsWith('@g.us')
+          && !message.key.fromMe
+          && !isSudo
+          && text
+          && await storage.get(`group:${chatId}:antispam`) === true) {
+          const metadata = await socket.groupMetadata(chatId);
+          const participants = metadata.participants || [];
+          const sender = findParticipant(participants, senderJid)
+            || findParticipant(participants, message.key.participantAlt);
+          if (!isGroupAdmin(sender)) {
+            const bot = findParticipant(participants, socket.user?.id);
+            if (!isGroupAdmin(bot)) {
+              logger.error({ chatId }, 'Anti-spam actif mais le bot n’est plus administrateur du groupe.');
+            } else if (isRepeatedSpam(chatId, senderJid, text)) {
+              await socket.sendMessage(chatId, { delete: message.key });
+              continue;
+            }
+          }
+        }
         const prefix = config.prefixes.find((candidate) => text.startsWith(candidate));
         const commandText = prefix ? text.slice(prefix.length).trim() : text;
         const firstWord = commandText.split(/\s+/)[0]?.toLowerCase();
@@ -252,6 +332,7 @@ export function createMessageHandler({
               remoteJid: chatId,
               id: contextInfo.stanzaId,
               participant: quotedParticipant,
+              ...(contextInfo.participantPn ? { participantAlt: contextInfo.participantPn } : {}),
               fromMe: quotedFromMe,
             },
             message: contextInfo.quotedMessage,

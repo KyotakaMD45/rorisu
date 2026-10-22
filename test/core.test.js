@@ -14,6 +14,8 @@ import delvarPlugin from '../plugins/delvar.js';
 import afkPlugin from '../plugins/afk.js';
 import pollPlugin from '../plugins/poll.js';
 import antilinkPlugin from '../plugins/antilink.js';
+import antispamPlugin from '../plugins/antispam.js';
+import slowmodePlugin from '../plugins/slowmode.js';
 import warnPlugin from '../plugins/warn.js';
 import groupPlugin from '../plugins/group.js';
 import filterPlugin from '../plugins/filter.js';
@@ -103,7 +105,7 @@ test('charge les options depuis la configuration et migre les anciennes valeurs 
 // Vérifie que les commandes et leurs alias sont disponibles pour le gestionnaire.
 test('le chargeur référence les commandes et alias intégrés', async () => {
   const plugins = await loadPlugins();
-  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'antidelete', 'antivv', 'vv', 'update', 'setsudo', 'prefix', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'jid', 'id', 'getjid', 'poll', 'antilink', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'download', 'tiktok', 'insta', 'fb', 'youtube', 'yt', 'gemini', 'ai', 'image', 'imagine']) {
+  for (const command of ['ping', 'list', 'menu', 'alive', 'react', 'delete', 'dlt', 'antidelete', 'antivv', 'vv', 'update', 'setsudo', 'prefix', 'setvar', 'getvar', 'allvar', 'delvar', 'afk', 'jid', 'id', 'getjid', 'poll', 'antilink', 'antispam', 'slowmode', 'antiword', 'warn', 'filter', 'stop', 'greet', 'setgreet', 'getgreet', 'delgreet', 'setgoodbye', 'getgoodbye', 'delgoodbye', 'tag', 'tagall', 'ginfo', 'restart', 'shutdown', 'kick', 'add', 'promote', 'demote', 'invite', 'revoke', 'mute', 'unmute', 'sticker', 'download', 'tiktok', 'insta', 'fb', 'youtube', 'yt', 'gemini', 'ai', 'image', 'imagine']) {
     assert.equal(typeof plugins.get(command)?.execute, 'function', `Commande manquante : ${command}`);
   }
   assert.equal(plugins.get('stop').name, 'filter');
@@ -240,6 +242,32 @@ test('jid affiche l’identifiant du bot pour un message cité envoyé par le bo
   });
 
   assert.match(reply, /Message cité : 22500000000:2@s\.whatsapp\.net/);
+});
+
+test('jid affiche les correspondances numéro et LID fournies par Baileys', async () => {
+  let reply;
+  const socket = {
+    signalRepository: {
+      lidMapping: {
+        async getPNForLID(jid) {
+          return jid === '987654321@lid' ? '33687654321@s.whatsapp.net' : null;
+        },
+        async getLIDForPN(jid) {
+          return jid === '33687654321@s.whatsapp.net' ? '987654321@lid' : null;
+        },
+      },
+    },
+  };
+  await jidPlugin.execute({
+    chatId: '987654321@lid',
+    senderJid: '987654321@lid',
+    socket,
+    async sendReply(text) { reply = text; },
+  });
+
+  assert.match(reply, /Discussion : 987654321@lid/);
+  assert.match(reply, /Discussion \(numéro\) : 33687654321@s\.whatsapp\.net/);
+  assert.match(reply, /Discussion \(LID\) : 987654321@lid/);
 });
 
 test('le message de connexion privé inclut la session, le numéro et l’état des fonctions', () => {
@@ -506,6 +534,164 @@ test('antilink supprime les liens envoyés par les non-administrateurs', async (
     { chatId: 'group@g.us', content: { delete: message.key } },
     { chatId: 'group@g.us', content: { text: 'Les liens ne sont pas autorisés dans ce groupe.' } },
   ]);
+});
+
+test('antispam est réservé aux administrateurs et exige que le bot soit administrateur', async () => {
+  const values = new Map();
+  const replies = [];
+  const context = {
+    socket: {
+      user: { id: '999@s.whatsapp.net' },
+      async groupMetadata() {
+        return {
+          participants: [
+            { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+            { id: '999@s.whatsapp.net' },
+          ],
+        };
+      },
+    },
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: ['on'],
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+    async sendReply(text) { replies.push(text); },
+  };
+
+  await antispamPlugin.execute(context);
+  assert.equal(values.get('group:group@g.us:antispam'), undefined);
+  assert.match(replies[0], /bot doit être administrateur/);
+});
+
+test('antispam supprime les messages répétés à partir du troisième et ignore les admins', async () => {
+  const sent = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: [] },
+    storage: {
+      async get(key) { return key === 'group:group@g.us:antispam'; },
+      async set() {},
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const messages = [1, 2, 3].map((index) => ({
+    key: {
+      remoteJid: 'group@g.us',
+      participant: '33687654321@s.whatsapp.net',
+      id: `repeat-${index}`,
+    },
+    message: { conversation: 'même message' },
+  }));
+  const socket = {
+    user: { id: '999@s.whatsapp.net' },
+    async groupMetadata() {
+      return {
+        participants: [
+          { id: '33687654321@s.whatsapp.net' },
+          { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+          { id: '999@s.whatsapp.net', admin: 'admin' },
+        ],
+      };
+    },
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+
+  await handler({ type: 'notify', messages }, socket);
+  assert.deepEqual(sent, [{
+    chatId: 'group@g.us',
+    content: { delete: messages[2].key },
+  }]);
+
+  await handler({
+    type: 'notify',
+    messages: [{
+      key: {
+        remoteJid: 'group@g.us',
+        participant: '33612345678@s.whatsapp.net',
+        id: 'admin-repeat',
+      },
+      message: { conversation: 'même message' },
+    }],
+  }, socket);
+  assert.equal(sent.length, 1);
+});
+
+test('slowmode est réservé aux administrateurs et exige que le bot soit administrateur', async () => {
+  const values = new Map();
+  const replies = [];
+  const context = {
+    socket: {
+      user: { id: '999@s.whatsapp.net' },
+      async groupMetadata() {
+        return { participants: [{ id: '33612345678@s.whatsapp.net', admin: 'admin' }] };
+      },
+    },
+    chatId: 'group@g.us',
+    senderJid: '33612345678@s.whatsapp.net',
+    isGroup: true,
+    args: ['on'],
+    storage: {
+      async get(key) { return values.get(key) ?? null; },
+      async set(key, value) { values.set(key, value); },
+    },
+    async sendReply(text) { replies.push(text); },
+  };
+
+  await slowmodePlugin.execute(context);
+  assert.equal(values.get('group:group@g.us:slowmode'), undefined);
+  assert.match(replies[0], /bot doit être administrateur/);
+});
+
+test('slowmode supprime les messages trop rapprochés et ignore admins et propriétaire', async () => {
+  const sent = [];
+  const handler = createMessageHandler({
+    plugins: new Map(),
+    config: { prefixes: ['.'], sudoNumbers: ['33600000000'] },
+    storage: {
+      async get(key) { return key === 'group:group@g.us:slowmode'; },
+      async set() {},
+      async increment() {},
+    },
+    logger: { error() {} },
+  });
+  const messages = ['member-first', 'member-too-soon', 'admin-message', 'owner-message'].map((id, index) => ({
+    key: {
+      remoteJid: 'group@g.us',
+      participant: [
+        '33687654321@s.whatsapp.net',
+        '33687654321@s.whatsapp.net',
+        '33612345678@s.whatsapp.net',
+        '33600000000@s.whatsapp.net',
+      ][index],
+      id,
+    },
+    message: { conversation: `texte ${id}` },
+  }));
+  const socket = {
+    user: { id: '999@s.whatsapp.net' },
+    async groupMetadata() {
+      return {
+        participants: [
+          { id: '33687654321@s.whatsapp.net' },
+          { id: '33612345678@s.whatsapp.net', admin: 'admin' },
+          { id: '33600000000@s.whatsapp.net' },
+          { id: '999@s.whatsapp.net', admin: 'admin' },
+        ],
+      };
+    },
+    async sendMessage(chatId, content) { sent.push({ chatId, content }); },
+  };
+
+  await handler({ type: 'notify', messages }, socket);
+  assert.deepEqual(sent, [{
+    chatId: 'group@g.us',
+    content: { delete: messages[1].key },
+  }]);
 });
 
 test('warn compte les avertissements et retire un membre à la limite', async () => {
@@ -956,8 +1142,8 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
     async executeNpm(command, args) { npmCalls.push([command, args]); },
     async executeGit(args) {
       calls.push(args);
-      if (args[0] === 'rev-parse' && args[1] === 'HEAD') return { stdout: 'old\n' };
-      if (args[0] === 'rev-parse') return { stdout: 'new\n' };
+      if (args[0] === 'rev-parse' && args[1] === 'HEAD') return { stdout: `${'a'.repeat(40)}\n` };
+      if (args[0] === 'rev-parse') return { stdout: `${'b'.repeat(40)}\n` };
       if (args[0] === 'log') return { stdout: 'abc123\tCorrection importante\n' };
       return { stdout: '' };
     },
@@ -975,7 +1161,8 @@ test('le vérificateur automatique ne récupère et installe les mises à jour q
     ['rev-parse', '--verify', 'refs/remotes/origin/master'],
     ['log', '--format=%h%x09%s', 'HEAD..origin/master'],
     ['status', '--porcelain'],
-    ['merge', '--ff-only', 'origin/master'],
+    ['fetch', '--prune', 'origin'],
+    ['merge', '--ff-only', 'b'.repeat(40)],
   ]);
   assert.equal(npmCalls.length, 1);
   assert.deepEqual(npmCalls[0][1], process.platform === 'win32'
@@ -1075,15 +1262,36 @@ test('le gestionnaire traite les commandes du compte lié et des autres comptes'
       message: { conversation: '.ping' },
     }],
   }, socket);
+  socket.signalRepository = {
+    lidMapping: {
+      async getPNForLID(jid) {
+        return jid === '987654321@lid' ? '33612345678@s.whatsapp.net' : null;
+      },
+    },
+  };
+  await handler({
+    type: 'notify',
+    messages: [{
+      key: {
+        remoteJid: '12345-67890@g.us',
+        participant: '987654321@lid',
+        fromMe: false,
+        id: 'owner-lid-command',
+      },
+      message: { conversation: '.ping' },
+    }],
+  }, socket);
 
   assert.deepEqual(executed, [
     { senderNumber: '33612345678', isSudo: true },
     { senderNumber: '33687654321', isSudo: false },
+    { senderNumber: '33612345678', isSudo: true },
   ]);
   assert.deepEqual(errors, []);
   assert.deepEqual(sent.map(({ chatId }) => chatId), [
     '33612345678@s.whatsapp.net',
     '33687654321@s.whatsapp.net',
+    '12345-67890@g.us',
   ]);
 });
 

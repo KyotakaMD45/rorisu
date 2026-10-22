@@ -41,7 +41,7 @@ pm2 status
 pm2 logs rorisu --lines 100
 ```
 
-Dans WhatsApp, `.update` vérifie les commits disponibles et `.update now` installe la mise à jour puis redémarre le bot. Pour activer les mises à jour automatiques au démarrage et toutes les cinq minutes, envoie au bot :
+Dans WhatsApp, `.update` vérifie les commits disponibles et `.update now` récupère le commit vérifié, installe les dépendances de production, puis redémarre le bot. La mise à jour s’arrête sans modifier le dépôt si `git status --short` détecte des fichiers locaux non sauvegardés; sauvegarde-les avant de réessayer. Si l’installation de `npm ci` échoue après le fast-forward, consulte les journaux puis lance `npm ci --omit=dev` depuis le dossier du bot avant de redémarrer PM2. Pour activer les mises à jour automatiques au démarrage et toutes les cinq minutes, envoie au bot :
 
 ```text
 .setvar AUTO_UPDATE = on
@@ -121,7 +121,7 @@ virgules.
 | `.download`, `.yt`, `.youtube`, `.tiktok`, `.insta`, `.fb` | Télécharge des médias publics pris en charge (yt-dlp requis; limite 20 Mo). |
 | `.sticker`, `.poll`, `.afk`, `.react`, `.jid` (`.id`, `.getjid`), `.dlt` | Outils de discussion; `.jid` affiche les identifiants de la discussion, de l’expéditeur, des mentions et du message cité; `.dlt` supprime le message cité avec les permissions nécessaires. |
 | `.delete p/g/JID/off`, `.antidelete`, `.vv`, `.antivv off` | Récupération anti-suppression des messages ordinaires et information sur la protection des médias à vue unique. Limite média anti-suppression : 20 Mo. |
-| `.antilink`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
+| `.antilink`, `.antispam`, `.slowmode`, `.antiword`, `.warn`, `.filter`, `.tagall`, `.rori` | Modération et outils de groupe. `.antispam on|off` supprime les messages identiques répétés au moins trois fois en dix secondes; `.slowmode on|off` limite les membres à un message toutes les cinq secondes. Les admins et le propriétaire sont exemptés; aucune expulsion automatique n’est faite par ces options. `.rori ping sticker` limite les commandes des membres; `.rori off` retire la restriction. |
 | `.ginfo`, `.greet`, `.goodbye`, `.kick`, `.add`, `.promote`, `.demote` | Gestion du groupe (droits admin requis selon la commande). |
 | `.setvar`, `.getvar`, `.allvar`, `.delvar` | Gestion de `config.env` (propriétaire uniquement; les secrets sont masqués). |
 | `.setsudo [list|add <numéro>|remove <numéro>]` | Gère les propriétaires du bot; le dernier propriétaire ne peut pas être retiré. |
@@ -130,7 +130,7 @@ virgules.
 
 Pour les détails d’une commande, envoyez `.list` au bot. `.setvar` redémarre automatiquement le processus quand une variable nécessite une nouvelle initialisation.
 
-`.jid`, `.id` et `.getjid` sont des alias : envoie l’une de ces commandes dans une discussion pour obtenir son JID et celui de l’expéditeur; mentionne des membres pour afficher leurs JID, ou réponds à un message pour identifier son auteur (y compris un message envoyé par le bot).
+`.jid`, `.id` et `.getjid` sont des alias : envoie l’une de ces commandes dans une discussion pour obtenir son JID et celui de l’expéditeur; mentionne des membres pour afficher leurs JID, ou réponds à un message pour identifier son auteur (y compris un message envoyé par le bot). Les identifiants WhatsApp récents `@lid` sont affichés avec leur numéro associé quand Baileys possède la correspondance; ces correspondances permettent aussi de reconnaître le propriétaire dans les groupes.
 
 Le téléchargeur utilise `yt-dlp` installé localement. Les scripts d’installation VPS Debian/Ubuntu, Termux et Windows l’installent automatiquement. Sur les autres plateformes, installez yt-dlp depuis sa documentation officielle. Utilisez uniquement des médias publics que vous êtes autorisé à télécharger; aucune session, cookie ou connexion à un compte n’est utilisé. Les playlists ne sont pas téléchargées et la limite est de 20 Mo.
 
